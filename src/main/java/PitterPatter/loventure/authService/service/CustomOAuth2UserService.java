@@ -19,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     // 카카오, 구글로 부터 전달된 정보 가공 및 DB 연동
     private final UserRepository userRepository;
@@ -31,6 +34,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         // 1. 기본 OAuth2UserService를 통해 사용자 정보를 가져옵니다.
         OAuth2User oAuth2User = super.loadUser(userRequest);
+        log.info("oAuth2User attributes: {}", oAuth2User.getAttributes());
 
         // 2. 로그인 제공자(provider)를 확인합니다. (google, kakao 등)
         String registrationId = userRequest.getClientRegistration().getRegistrationId();

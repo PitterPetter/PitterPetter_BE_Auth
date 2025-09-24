@@ -109,4 +109,16 @@ public class User {
     public void setStatus(AccountStatus status) {
         this.status = status;
     }
+
+    public void updateOnboardingInfo(Integer alcoholPreference,
+                                     Integer activeBound,
+                                     List<FavoriteFoodCategories> favoriteFoodCategories,
+                                     DateCostPreference dateCostPreference,
+                                     String preferredAtmosphere) {
+        this.alcoholPreference = alcoholPreference;
+        this.activeBound = activeBound;
+        this.favoriteFoodCategories = favoriteFoodCategories;
+        this.dateCostPreference = dateCostPreference;
+        this.preferredAtmosphere = preferredAtmosphere;
+    }
 }

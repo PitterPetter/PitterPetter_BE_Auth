@@ -32,6 +32,17 @@ public class JWTUtil {
                 .compact();
     }
     
+    // userID를 포함한 JWT access token 생성
+    public String createJwtWithUserId(String username, Long userId, Long expiredMs) {
+        return Jwts.builder()
+                .setSubject(username)
+                .claim("user_id", userId)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
     // Refresh token 생성 -> access token을 계속 사용하는 것은 보안상 좋지 않음
     // 따라서 만료 기간을 두고 토큰이 만료 시 refresh token으로 새롭게 발급
     public String createRefreshToken(String username) {
@@ -52,5 +63,10 @@ public class JWTUtil {
     // 설정된 token 만료 시간을 현재 시간과 비교해 유효성 검사 진행
     public boolean isTokenExpired(String token) {
         return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getExpiration().before(new Date());
+    }
+    
+    // JWT에서 userID 추출
+    public Long getUserId(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("user_id", Long.class);
     }
 }

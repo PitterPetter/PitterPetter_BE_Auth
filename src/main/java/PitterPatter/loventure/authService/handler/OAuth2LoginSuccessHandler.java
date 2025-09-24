@@ -1,20 +1,21 @@
 package PitterPatter.loventure.authService.handler;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import PitterPatter.loventure.authService.dto.AuthResponse;
 import PitterPatter.loventure.authService.dto.GoogleUserInfo;
 import PitterPatter.loventure.authService.dto.KakaoUserInfo;
 import PitterPatter.loventure.authService.dto.OAuth2UserInfo;
-import PitterPatter.loventure.authService.repository.UserRepository;
-import PitterPatter.loventure.authService.security.JWTUtil;
+import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,20 +26,14 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
-    // CustomOAuth2UserService 실행 이후 호출
-    // JWT를 발급 및 FE에 전달하는 역할
-    private final JWTUtil jwtUtil;
-    private final UserRepository userRepository;
     private final AuthService authService;
 
-    // 1. @Value 어노테이션으로 리다이렉트 URI 변수 선언 (추가)
     @Value("${spring.jwt.redirect.base}")
     private String REDIRECT_URI_BASE;
 
     @Override
     @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
-        // 로그인한 사용자의 정보를 가져오는 method
         try {
             OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
             
@@ -48,7 +43,6 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            // CustomOAuth2UserService에서 반환한 Name(providerId)을 사용
             String providerId = authentication.getName();
             
             if (providerId == null || providerId.isEmpty()) {
@@ -58,8 +52,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             }
             
             log.info("OAuth2 로그인 성공 - providerId: {}", providerId);
-            
-            // OAuth2User에서 제공자 정보 추출
+
             String registrationId = getRegistrationId(request);
             OAuth2UserInfo oAuth2UserInfo = createOAuth2UserInfo(oAuth2User, registrationId);
             
@@ -69,7 +62,6 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            // AuthService를 통한 로그인/회원가입 처리
             AuthResponse authResponse = authService.processOAuth2Login(oAuth2UserInfo, registrationId);
             
             if (!authResponse.isSuccess()) {
@@ -78,11 +70,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            // 성공 시 리다이렉트 URL 구성
-            String targetUrl = buildSuccessRedirectUrl(authResponse);
-            
-            log.info("OAuth2 로그인 성공 - 리다이렉트: {}, 신규가입: {}", targetUrl, authResponse.getUser().isNewUser());
-            getRedirectStrategy().sendRedirect(request, response, targetUrl);
+            // 신규 사용자와 기존 사용자에 따라 다른 페이지로 리다이렉트
+            String redirectUrl = buildSuccessRedirectUrl(authResponse);
+            log.info("OAuth2 로그인 성공 - 리다이렉트 URL: {}", redirectUrl);
+            getRedirectStrategy().sendRedirect(request, response, redirectUrl);
             
         } catch (IOException | RuntimeException e) {
             log.error("OAuth2 로그인 성공 처리 중 오류 발생: {}", e.getMessage(), e);
@@ -97,44 +88,105 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     // 위의 providerTYPE 확인을 위해 URI의 정보로 provider 반환
     private String getRegistrationId(HttpServletRequest request) {
         String requestURI = request.getRequestURI();
-        if (requestURI.contains("/oauth2/authorization/google")) {
+        log.info("OAuth2 콜백 URI: {}", requestURI);
+        
+        // OAuth2 콜백 URL에서 provider 정보 추출 (정확한 패턴 매칭)
+        if (requestURI.equals("/login/oauth2/code/google") || requestURI.contains("/login/oauth2/code/google")) {
+            log.info("Google OAuth2 콜백 감지");
             return "google";
-        } else if (requestURI.contains("/oauth2/authorization/kakao")) {
+        } else if (requestURI.equals("/login/oauth2/code/kakao") || requestURI.contains("/login/oauth2/code/kakao")) {
+            log.info("Kakao OAuth2 콜백 감지");
             return "kakao";
         }
+        
+        // OAuth2 인증 시작 URL에서 provider 정보 추출
+        if (requestURI.contains("/oauth2/authorization/google")) {
+            log.info("Google OAuth2 인증 시작 감지");
+            return "google";
+        } else if (requestURI.contains("/oauth2/authorization/kakao")) {
+            log.info("Kakao OAuth2 인증 시작 감지");
+            return "kakao";
+        }
+        
+        // Referer 헤더에서 provider 정보 추출
+        String referer = request.getHeader("Referer");
+        log.info("Referer 헤더: {}", referer);
+        if (referer != null) {
+            if (referer.contains("google")) {
+                log.info("Referer에서 Google 감지");
+                return "google";
+            } else if (referer.contains("kakao")) {
+                log.info("Referer에서 Kakao 감지");
+                return "kakao";
+            }
+        }
+        
+        // OAuth2User의 attributes에서 provider 정보 추출
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof OAuth2User) {
+                OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+                log.info("OAuth2User attributes: {}", oAuth2User.getAttributes().keySet());
+                
+                // Google의 경우 sub 필드가 있고, Kakao의 경우 id 필드가 있음
+                if (oAuth2User.getAttributes().containsKey("sub")) {
+                    log.info("OAuth2User attributes에서 Google 감지");
+                    return "google";
+                } else if (oAuth2User.getAttributes().containsKey("id")) {
+                    log.info("OAuth2User attributes에서 Kakao 감지");
+                    return "kakao";
+                }
+            }
+        } catch (Exception e) {
+            log.warn("OAuth2User에서 provider 정보 추출 실패: {}", e.getMessage());
+        }
+        
+        log.warn("Provider 감지 실패 - URI: {}, Referer: {}", requestURI, referer);
         return "unknown";
     }
     
     private OAuth2UserInfo createOAuth2UserInfo(OAuth2User oAuth2User, String registrationId) {
-        switch (registrationId.toLowerCase()) {
-            case "google":
-                return new GoogleUserInfo(oAuth2User.getAttributes());
-            case "kakao":
-                return new KakaoUserInfo(oAuth2User.getAttributes());
-            default:
-                return null;
-        }
+        return switch (registrationId.toLowerCase()) {
+            case "google" -> new GoogleUserInfo(oAuth2User.getAttributes());
+            case "kakao" -> new KakaoUserInfo(oAuth2User.getAttributes());
+            default -> null;
+        };
     }
     
-    // Access token/refresh token, useId, 신규 가입 유무 등 사용자의 정보를 이용해
-    // 리다이렉트 URL 생성 -> FE에서 읽어서 로그인 후 화면으로 이동
+    // 신규 사용자와 기존 사용자에 따라 다른 페이지로 리다이렉트
     private String buildSuccessRedirectUrl(AuthResponse authResponse) {
-        StringBuilder url = new StringBuilder(REDIRECT_URI_BASE);
-        url.append("/social-login?");
-        url.append("success=true");
-        url.append("&access_token=").append(authResponse.getAccessToken());
-        url.append("&refresh_token=").append(authResponse.getRefreshToken());
-        url.append("&expires_in=").append(authResponse.getExpiresIn());
-        url.append("&is_new_user=").append(authResponse.getUser().isNewUser());
-        url.append("&user_id=").append(authResponse.getUser().getUserId());
-        url.append("&email=").append(authResponse.getUser().getEmail());
-        url.append("&name=").append(authResponse.getUser().getName());
+        StringBuilder url = new StringBuilder();
+        
+        if (authResponse.getUser().isNewUser()) {
+            // 신규 사용자: 온보딩 페이지로 리다이렉트
+            url.append(REDIRECT_URI_BASE).append("/onboarding?");
+            url.append("access_token=").append(authResponse.getAccessToken());
+            url.append("&refresh_token=").append(authResponse.getRefreshToken());
+            url.append("&expires_in=").append(authResponse.getExpiresIn());
+            url.append("&user_id=").append(authResponse.getUser().getUserId());
+            url.append("&email=").append(URLEncoder.encode(authResponse.getUser().getEmail(), StandardCharsets.UTF_8));
+            url.append("&name=").append(URLEncoder.encode(authResponse.getUser().getName(), StandardCharsets.UTF_8));
+            log.info("신규 사용자 온보딩 페이지로 리다이렉트");
+        } else {
+            // 기존 사용자: 홈 페이지로 리다이렉트
+            url.append(REDIRECT_URI_BASE).append("/home?");
+            url.append("access_token=").append(authResponse.getAccessToken());
+            url.append("&refresh_token=").append(authResponse.getRefreshToken());
+            url.append("&expires_in=").append(authResponse.getExpiresIn());
+            url.append("&user_id=").append(authResponse.getUser().getUserId());
+            url.append("&email=").append(URLEncoder.encode(authResponse.getUser().getEmail(), StandardCharsets.UTF_8));
+            url.append("&name=").append(URLEncoder.encode(authResponse.getUser().getName(), StandardCharsets.UTF_8));
+            log.info("기존 사용자 홈 페이지로 리다이렉트");
+        }
+        
         return url.toString();
     }
     
     private void redirectToFailure(HttpServletRequest request, HttpServletResponse response, String errorMessage) throws IOException {
-        String failureUrl = REDIRECT_URI_BASE + "/login-failure?error=" + errorMessage;
-        log.info("로그인 실패로 리다이렉트: {}", failureUrl);
-        getRedirectStrategy().sendRedirect(request, response, failureUrl);
+        String redirectUrl = REDIRECT_URI_BASE + "/login?error=" +
+                URLEncoder.encode(errorMessage, StandardCharsets.UTF_8);
+        log.info("OAuth2 로그인 실패 - 리다이렉트 URL: {}", redirectUrl);
+        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
+    
 }

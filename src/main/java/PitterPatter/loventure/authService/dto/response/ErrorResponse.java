@@ -1,4 +1,4 @@
-package PitterPatter.loventure.authService.dto;
+package PitterPatter.loventure.authService.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

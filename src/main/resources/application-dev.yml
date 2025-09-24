@@ -24,8 +24,8 @@ spring:
     expiration: 3600000 # 1시간
     refresh-expiration: 604800000 # 7일
     redirect:
-      onboarding: https://dev.loventure.com/onboarding # 개발용 프론트엔드 주소
-      base: https://dev.loventure.com/home
+      onboarding: https://loventure.us/onboarding/me # 개발용 프론트엔드 주소
+      base: https://loventure.us/home
 
   # OAuth2 클라이언트 설정 (Environment Variables로 대체)
   security:
