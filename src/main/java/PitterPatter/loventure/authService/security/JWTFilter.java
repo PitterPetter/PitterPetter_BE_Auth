@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
+import PitterPatter.loventure.authService.service.CoupleService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,7 @@ public class JWTFilter extends OncePerRequestFilter {
     // 로그인 후 인증 확인
     private final JWTUtil jwtUtil;
     private final UserRepository userRepository; // DB에서 사용자 정보를 조회하기 위함
+    private final CoupleService coupleService; // 커플 정보 조회를 위함
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -78,6 +80,10 @@ public class JWTFilter extends OncePerRequestFilter {
                     .password("") // password는 사용하지 않으므로 비워둠
                     .authorities("ROLE_USER") // 권한 설정
                     .build();
+
+            // MSA Gateway를 위한 헤더 추가
+            response.setHeader("X-User-Id", providerId);
+            response.setHeader("X-Couple-Id", "null");
 
             // SecurityContext에 인증 정보 저장
             Authentication authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
