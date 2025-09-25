@@ -3,7 +3,7 @@ package PitterPatter.loventure.authService.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import PitterPatter.loventure.authService.dto.AuthResponse;
+import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.OAuth2UserInfo;
 import PitterPatter.loventure.authService.repository.AccountStatus;
 import PitterPatter.loventure.authService.repository.ProviderType;
@@ -77,8 +77,8 @@ public class AuthService {
                         .build();
             }
 
-            // 5. JWT 토큰 생성
-            String accessToken = jwtUtil.createJwt(existingUser.getProviderId(), 60 * 60 * 1000L); // 1시간
+            // 5. JWT 토큰 생성 (userID 포함)
+            String accessToken = jwtUtil.createJwtWithUserId(existingUser.getProviderId(), existingUser.getUserId(), 60 * 60 * 1000L); // 1시간
             String refreshToken = jwtUtil.createRefreshToken(existingUser.getProviderId());
 
             // 6. 사용자 정보 구성
@@ -132,8 +132,8 @@ public class AuthService {
                         .build();
             }
 
-            // 새로운 액세스 토큰 생성
-            String newAccessToken = jwtUtil.createJwt(providerId, 60 * 60 * 1000L);
+            // 새로운 액세스 토큰 생성 (userID 포함)
+            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 60 * 60 * 1000L);
             String newRefreshToken = jwtUtil.createRefreshToken(providerId);
 
             AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()

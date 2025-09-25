@@ -40,6 +40,7 @@ public class JWTFilter extends OncePerRequestFilter {
         // 유효 기간 확인
         try {
             String token = authorization.split(" ")[1];
+            log.info("JWT 토큰 추출: {}", token);
 
             // 토큰 만료 확인
             if (jwtUtil.isTokenExpired(token)) {
@@ -49,9 +50,11 @@ public class JWTFilter extends OncePerRequestFilter {
             }
 
             String providerId = jwtUtil.getUsername(token); // 토큰에서 providerId 추출
+            log.info("JWT에서 추출한 providerId: {}", providerId);
 
             // providerId로 DB에서 사용자 조회
             User user = userRepository.findByProviderId(providerId);
+            log.info("DB에서 조회한 사용자: {}", user != null ? user.getEmail() : "null");
             
             // 사용자가 존재하지 않는 경우 처리 -> 탈퇴 시 고려
             if (user == null) {

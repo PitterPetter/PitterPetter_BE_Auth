@@ -2,6 +2,9 @@ package PitterPatter.loventure.authService.handler;
 
 import java.io.IOException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
@@ -25,10 +28,10 @@ public class OAuth2LoginFailureHandler extends SimpleUrlAuthenticationFailureHan
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException authenticationException) throws ServletException, IOException {
         log.error("OAuth2 로그인 실패: {}", authenticationException.getMessage(), authenticationException);
-        
-        // 에러 타입에 따른 구체적인 처리
+
         String errorMessage = getErrorMessage(authenticationException);
-        String redirectUrl = REDIRECT_URI_BASE + "/login-failure?error=" + errorMessage;
+        String encodedErrorMessage = URLEncoder.encode(errorMessage, StandardCharsets.UTF_8.toString());
+        String redirectUrl = REDIRECT_URI_BASE + "/login-failure?error=" + encodedErrorMessage;
         
         log.info("로그인 실패로 리다이렉트: {}", redirectUrl);
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
