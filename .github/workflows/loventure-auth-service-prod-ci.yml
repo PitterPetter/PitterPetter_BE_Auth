@@ -39,6 +39,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: |
             pitterpetter/auth-service:${{ steps.vars.outputs.sha_short }}
