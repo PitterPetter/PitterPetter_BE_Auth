@@ -1,7 +1,4 @@
 spring:
-  config:
-    activate:
-      on-profile: dev # 프로필 이름을 dev로 변경
   # 데이터베이스 정보 (Environment Variables로 대체)
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
