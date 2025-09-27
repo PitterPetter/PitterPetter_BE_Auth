@@ -51,6 +51,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: PitterPetter/PitterPatter-Manifest    # ArgoCD가 바라보는 Organization/Repo
+          ref: main
           token: ${{ secrets.GH_PAT }}       # Personal Access Token 필요
           path: manifests
 
