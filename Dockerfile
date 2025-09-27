@@ -30,8 +30,8 @@ WORKDIR /app
 # 빌드 산출물 복사 (필요시 파일명 고정 가능)
 COPY --from=build /workspace/build/libs/*.jar /app/app.jar
 
-ENV SERVER_PORT=8000
-EXPOSE 8000
+ENV SERVER_PORT=8081
+EXPOSE 8081
 
 # 컨테이너 환경에서 메모리 친화 옵션 + 포트 주입
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Seoul"

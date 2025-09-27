@@ -30,7 +30,7 @@ repositories {
 
 test {
     useJUnitPlatform()
-    environment "TEST_DATASOURCE_USERNAME", System.getenv("DATASOURCE_USERNAME")
+    environment "TEST_DATASOURCE_USERNAME", System.getenv("DB_USERNAME")
 }
 
 dependencies {
