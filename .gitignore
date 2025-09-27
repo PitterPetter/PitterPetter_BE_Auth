@@ -38,7 +38,6 @@ out/
 
 ### application-local.yml ###
 src/main/resources/application-local.yml
-src/main/resources/application.yml
 project_organized/*
 testPicture/*
 src/main/java/PitterPatter/loventure/authService/controller/TestController.java
