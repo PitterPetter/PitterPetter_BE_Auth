@@ -18,7 +18,8 @@ public class JWTUtil {
 
     // JWTUtil class를 생성해서 application.yml 파일에 존재하는 키를 가져와 인코딩
     public JWTUtil(@Value("${spring.jwt.secret}") String secret) {
-        byte[] byteSecretKey = Decoders.BASE64.decode(secret);
+        // 일반 문자열을 바이트 배열로 변환 (BASE64 디코딩 제거)
+        byte[] byteSecretKey = secret.getBytes();
         this.key = Keys.hmacShaKeyFor(byteSecretKey);
     }
 
