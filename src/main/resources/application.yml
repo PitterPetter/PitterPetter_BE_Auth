@@ -59,6 +59,7 @@ management:
     health:
       show-details: always
       show-components: always
+      enabled: true
   health:
     db:
       enabled: true
@@ -66,3 +67,5 @@ management:
       enabled: true
     defaults:
       enabled: true
+  security:
+    enabled: false
