@@ -60,7 +60,6 @@ management:
       enabled: true
       show-details: always
       show-components: always
-      enabled: true
   health:
     db:
       enabled: true
