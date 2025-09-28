@@ -57,8 +57,10 @@ management:
         include: health,info,metrics,prometheus
   endpoint:
     health:
+      enabled: true
       show-details: always
       show-components: always
+      enabled: true
   health:
     db:
       enabled: true
@@ -66,3 +68,5 @@ management:
       enabled: true
     defaults:
       enabled: true
+  security:
+    enabled: false
