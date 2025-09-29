@@ -91,10 +91,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         log.info("OAuth2 콜백 URI: {}", requestURI);
         
         // OAuth2 콜백 URL에서 provider 정보 추출 (정확한 패턴 매칭)
-        if (requestURI.equals("/login/oauth2/code/google") || requestURI.contains("/login/oauth2/code/google")) {
+        if (requestURI.equals("/api/auth/login/oauth2/code/google") || requestURI.contains("/api/auth/login/oauth2/code/google")) {
             log.info("Google OAuth2 콜백 감지");
             return "google";
-        } else if (requestURI.equals("/login/oauth2/code/kakao") || requestURI.contains("/login/oauth2/code/kakao")) {
+        } else if (requestURI.equals("/api/auth/login/oauth2/code/kakao") || requestURI.contains("/api/auth/login/oauth2/code/kakao")) {
             log.info("Kakao OAuth2 콜백 감지");
             return "kakao";
         }
@@ -161,21 +161,11 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             // 신규 사용자: 온보딩 페이지로 리다이렉트
             url.append(REDIRECT_URI_BASE).append("/onboarding?");
             url.append("access_token=").append(authResponse.getAccessToken());
-            url.append("&refresh_token=").append(authResponse.getRefreshToken());
-            url.append("&expires_in=").append(authResponse.getExpiresIn());
-            url.append("&user_id=").append(authResponse.getUser().getUserId());
-            url.append("&email=").append(URLEncoder.encode(authResponse.getUser().getEmail(), StandardCharsets.UTF_8));
-            url.append("&name=").append(URLEncoder.encode(authResponse.getUser().getName(), StandardCharsets.UTF_8));
             log.info("신규 사용자 온보딩 페이지로 리다이렉트");
         } else {
             // 기존 사용자: 홈 페이지로 리다이렉트
             url.append(REDIRECT_URI_BASE).append("/home?");
             url.append("access_token=").append(authResponse.getAccessToken());
-            url.append("&refresh_token=").append(authResponse.getRefreshToken());
-            url.append("&expires_in=").append(authResponse.getExpiresIn());
-            url.append("&user_id=").append(authResponse.getUser().getUserId());
-            url.append("&email=").append(URLEncoder.encode(authResponse.getUser().getEmail(), StandardCharsets.UTF_8));
-            url.append("&name=").append(URLEncoder.encode(authResponse.getUser().getName(), StandardCharsets.UTF_8));
             log.info("기존 사용자 홈 페이지로 리다이렉트");
         }
         
