@@ -34,6 +34,7 @@ spring:
             client-secret: ${GOOGLE_CLIENT_SECRET}
 
             redirect-uri: https://api.loventure.us/api/auth/login/oauth2/code/google
+
             scope:
               - profile
               - email
@@ -42,6 +43,7 @@ spring:
             client-secret: ${KAKAO_CLIENT_SECRET}
 
             redirect-uri: https://api.loventure.us/api/auth/login/oauth2/code/kakao
+
 
             authorization-grant-type: authorization_code
             scope:
