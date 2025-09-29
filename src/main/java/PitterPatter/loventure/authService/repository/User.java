@@ -54,7 +54,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(length = 20)
+    @Column(length = 100)
     private String name;
 
     private LocalDateTime birthDate;

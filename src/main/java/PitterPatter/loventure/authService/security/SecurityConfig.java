@@ -38,9 +38,12 @@ public class SecurityConfig {
         // 세션 관리 정책: STATELESS (JWT 사용을 위함)
         // 세션을 통해 사용자의 로그인 상태를 기억하면 보안적인 문제가 생김
         // JWT를 이용해 refresh 등의 작업을 이용해서 처리하기 위해 로그인 상태를 기억하지 않게 STATELESS 처리
+
         http
                 .sessionManagement((session) -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(false));
 
         // OAuth2 로그인 설정
         http
