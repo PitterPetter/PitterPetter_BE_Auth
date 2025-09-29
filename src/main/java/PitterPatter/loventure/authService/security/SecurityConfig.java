@@ -57,8 +57,9 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/", "/login/**", "/oauth2/**", "/api/test/**", "/api/auth/status", 
-                                        "/api/auth/signup", "/api/auth/login/**", 
-                                        "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
+                                        "/api/auth/signup", "/api/auth/login/**", "/api/auth/login/oauth2/code/**", "/api/auth/swagger-ui/**",
+                                "/api/auth/swagger-ui/**","/api/auth/v3/api-docs/**","/api/auth/swagger-ui.html",
+                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();
