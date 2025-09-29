@@ -1,3 +1,5 @@
+// SecurityConfig.java (수정 후: OAuth2 State 관리 및 import 오류 수정)
+
 package PitterPatter.loventure.authService.security;
 
 import org.springframework.context.annotation.Bean;
@@ -25,6 +27,12 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final UserRepository userRepository;
 
+    // [수정] OAuth2 인증 요청을 쿠키에 저장하는 리포지토리 (STATELESS 환경에 적합)
+    @Bean
+    public CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository() {
+        return new CookieOAuth2AuthorizationRequestRepository();
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
@@ -47,6 +55,9 @@ public class SecurityConfig {
                 .oauth2Login((oauth2) -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler) // 로그인 성공 핸들러로 이동 -> 유저를 DB에 저장하거나 조회 후 실행, JWT 발급
                         .failureHandler(oAuth2LoginFailureHandler) // 로그인 실패 핸들러로 이동
+                        // [수정] 쿠키 기반 AuthorizationRequestRepository 사용 (STATELESS 환경에 적합)
+                        .authorizationEndpoint(authorizationEndpointConfig -> authorizationEndpointConfig
+                                .authorizationRequestRepository(authorizationRequestRepository()))
                         .userInfoEndpoint(userInfoEndpointConfig -> userInfoEndpointConfig
                                 .userService(customOAuth2UserService))); // 실제 유저 정보 처리 service
 
@@ -56,10 +67,10 @@ public class SecurityConfig {
 
         http
                 .authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/", "/login/**", "/oauth2/**", "/api/test/**", "/api/auth/status", 
-                                        "/api/auth/signup", "/api/auth/login/**", 
-                                        "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
-                                        "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
+                        .requestMatchers("/", "/login/**", "/oauth2/**", "/api/test/**", "/api/auth/status",
+                                "/api/auth/signup", "/api/auth/login/**",
+                                "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
+                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();
