@@ -105,7 +105,7 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
         cookie.setPath("/");
         cookie.setHttpOnly(true);
         cookie.setMaxAge(maxAge);
-        cookie.setSecure(false); // HTTPS 환경에서는 true로 설정
+        cookie.setSecure(true);
         response.addCookie(cookie);
         log.debug("쿠키 추가: {} (maxAge: {})", name, maxAge);
     }
