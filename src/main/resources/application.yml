@@ -33,7 +33,7 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
 
-            redirect-uri: https://loventure.us/login/oauth2/code/google
+            redirect-uri: https://api.loventure.us/login/oauth2/code/google
 
             scope:
               - profile
@@ -42,7 +42,7 @@ spring:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
 
-            redirect-uri: https://loventure.us/login/oauth2/code/kakao
+            redirect-uri: https://api.loventure.us/login/oauth2/code/kakao
 
             authorization-grant-type: authorization_code
             scope:
