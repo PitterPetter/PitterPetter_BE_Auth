@@ -49,9 +49,7 @@ public class SecurityConfig {
 
         http
                 .sessionManagement((session) -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                .maximumSessions(1)
-                .maxSessionsPreventsLogin(false));
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)); // ✅ STATELESS
 
         // OAuth2 로그인 설정
         http
