@@ -1,5 +1,6 @@
 package PitterPatter.loventure.authService.security;
 
+import java.math.BigInteger;
 import java.security.Key;
 import java.util.Date;
 
@@ -8,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 @Component
@@ -34,10 +34,22 @@ public class JWTUtil {
     }
     
     // userID를 포함한 JWT access token 생성
-    public String createJwtWithUserId(String username, Long userId, Long expiredMs) {
+    public String createJwtWithUserId(String username, BigInteger userId, Long expiredMs) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("user_id", userId)
+                .claim("userId", userId.toString())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
+    // userId와 coupleId를 포함한 JWT access token 생성
+    public String createJwtWithUserIdAndCoupleId(String username, BigInteger userId, String coupleId, Long expiredMs) {
+        return Jwts.builder()
+                .setSubject(username)
+                .claim("userId", userId.toString())
+                .claim("coupleId", coupleId)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -66,8 +78,14 @@ public class JWTUtil {
         return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getExpiration().before(new Date());
     }
     
-    // JWT에서 userID 추출
-    public Long getUserId(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("user_id", Long.class);
+    // JWT에서 userID 추출 (BigInteger 기반)
+    public BigInteger getUserId(String token) {
+        String userIdStr = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("userId", String.class);
+        return new BigInteger(userIdStr);
+    }
+    
+    // JWT에서 coupleId 추출
+    public String getCoupleIdFromToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("coupleId", String.class);
     }
 }

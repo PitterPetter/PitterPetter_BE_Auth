@@ -9,7 +9,5 @@ import org.springframework.stereotype.Repository;
 public interface CoupleOnboardingRepository extends JpaRepository<CoupleOnboarding, String> {
 
     Optional<CoupleOnboarding> findByCoupleId(String coupleId);
-
-    boolean existsByCoupleId(String coupleId);
 }
 

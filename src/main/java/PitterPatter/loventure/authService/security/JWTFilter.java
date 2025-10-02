@@ -39,7 +39,20 @@ public class JWTFilter extends OncePerRequestFilter {
         // token 발견 시, JWTUtil 내의 isTokenExpired method를 불러와서
         // 유효 기간 확인
         try {
+            // Authorization 헤더 형식 검증
+            if (authorization.split(" ").length < 2) {
+                log.warn("잘못된 Authorization 헤더 형식: {}", authorization);
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
             String token = authorization.split(" ")[1];
+            if (token == null || token.trim().isEmpty()) {
+                log.warn("빈 토큰 값");
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
             log.info("JWT 토큰 추출: {}", token);
 
             // 토큰 만료 확인

@@ -15,9 +15,8 @@ import PitterPatter.loventure.authService.dto.request.CoupleOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
-import PitterPatter.loventure.authService.repository.User;
-import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CoupleController {
     
     private final CoupleService coupleService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     @PostMapping("/rooms")
     // 이 API는 현재 인증된 OAuth2의 JWT에서 받아온 정보로 coupleRoom을 생성하는 API입니다.
@@ -38,7 +37,7 @@ public class CoupleController {
         
         try {
             // JWT에서 providerId 추출
-            String providerId = userDetails.getUsername();
+            String providerId = userService.extractProviderId(userDetails);
             // prividerId를 이용해서 CoupleRoom 생성
             ApiResponse<CreateCoupleRoomResponse> response = coupleService.createCoupleRoom(providerId);
             return ResponseEntity.ok(response);
@@ -57,18 +56,12 @@ public class CoupleController {
             @RequestBody @Valid CoupleMatchRequest request) {
         
         try {
-            // JWT에서 providerId와 userId 추출
-            String providerId = userDetails.getUsername();
-            // providerId로 사용자 조회 후 userId(TSID) 추출
-            User user = userRepository.findByProviderId(providerId);
-            if (user == null) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("40401", "사용자를 찾을 수 없습니다"));
-            }
-            String userId = user.getTsid().toString();
-            request.setUserId(userId);
+            // JWT에서 userId 추출
+            String userId = userService.extractUserId(userDetails);
+            // 새로운 request 객체 생성 (record는 불변)
+            CoupleMatchRequest newRequest = new CoupleMatchRequest(userId, request.inviteCode());
             
-            ApiResponse<CoupleMatchResponse> response = coupleService.matchCouple(request);
+            ApiResponse<CoupleMatchResponse> response = coupleService.matchCouple(newRequest);
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {

@@ -1,17 +1,15 @@
 package PitterPatter.loventure.authService.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CoupleMatchResponse {
-    private String coupleId;
-    private String creatorUserId;
-    private String partnerUserId;
-}
+public record CoupleMatchResponse(
+    @NotBlank(message = "커플 ID는 필수입니다")
+    String coupleId,
+    
+    @NotBlank(message = "생성자 사용자 ID는 필수입니다")
+    String creatorUserId,
+    
+    @NotBlank(message = "파트너 사용자 ID는 필수입니다")
+    String partnerUserId
+) {}
 
