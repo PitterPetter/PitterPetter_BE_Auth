@@ -49,7 +49,7 @@ public class SecurityConfig {
 
         http
                 .sessionManagement((session) -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)); // ✅ STATELESS
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)); 
 
         // OAuth2 로그인 설정
         http
