@@ -22,7 +22,7 @@ public class AuthResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UserInfo {
-        private Long userId;
+        private String userId;
         private String email;
         private String name;
         private String providerType;
