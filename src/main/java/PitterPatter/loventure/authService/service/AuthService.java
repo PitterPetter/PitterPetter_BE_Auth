@@ -101,8 +101,8 @@ public class AuthService {
                 existingUser.getProviderId(), 
                 existingUser.getUserId(), 
                 coupleId, 
-                60 * 60 * 1000L
-            ); // 1시간
+                10 * 60 * 1000L
+            ); // 10분
             String refreshToken = jwtUtil.createRefreshToken(existingUser.getProviderId());
 
             // 6. 사용자 정보 구성
@@ -189,7 +189,7 @@ public class AuthService {
             }
 
             // 새로운 액세스 토큰 생성 (userID 포함)
-            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 60 * 60 * 1000L);
+            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 10 * 60 * 1000L);
             String newRefreshToken = jwtUtil.createRefreshToken(providerId);
 
             AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(

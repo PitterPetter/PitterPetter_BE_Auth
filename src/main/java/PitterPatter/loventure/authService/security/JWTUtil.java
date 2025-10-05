@@ -62,7 +62,7 @@ public class JWTUtil {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L)) // 7일
+                .setExpiration(new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000L)) // 14일 (2주)
                 .claim("type", "refresh")
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
