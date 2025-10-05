@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import PitterPatter.loventure.authService.dto.UserDto;
 import PitterPatter.loventure.authService.dto.request.OnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
+import PitterPatter.loventure.authService.dto.response.OnboardingResponse;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +31,13 @@ public class OnboardingController {
             @RequestBody @Valid OnboardingRequest onboardingRequest) {
 
         try {
-
-            String providerId = userDetails.getUsername();
+            String providerId = userService.extractProviderId(userDetails);
             UserDto updatedUser = userService.updateOnboardingInfo(providerId, onboardingRequest);
             
-            OnboardingResponse response = OnboardingResponse.builder()
-                    .userId(updatedUser.getUserId().toString())
-                    .onboardingCompleted(true)
-                    .build();
+            OnboardingResponse response = new OnboardingResponse(
+                    updatedUser.userId().toString(),
+                    true
+            );
 
             return ResponseEntity.ok(ApiResponse.success(response));
 
@@ -48,12 +48,4 @@ public class OnboardingController {
         }
     }
 
-    @lombok.Data
-    @lombok.Builder
-    @lombok.NoArgsConstructor
-    @lombok.AllArgsConstructor
-    public static class OnboardingResponse {
-        private String userId;
-        private boolean onboardingCompleted;
-    }
 }

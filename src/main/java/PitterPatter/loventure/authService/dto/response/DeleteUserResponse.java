@@ -1,16 +1,12 @@
 package PitterPatter.loventure.authService.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class DeleteUserResponse {
-    private String status;
-    private String message;
-}
+public record DeleteUserResponse(
+    @NotBlank(message = "상태는 필수입니다")
+    String status,
+    
+    @NotBlank(message = "메시지는 필수입니다")
+    String message
+) {}
 
