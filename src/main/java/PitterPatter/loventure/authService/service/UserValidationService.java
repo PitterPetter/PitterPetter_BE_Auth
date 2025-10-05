@@ -5,6 +5,8 @@ import java.math.BigInteger;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import PitterPatter.loventure.authService.exception.BusinessException;
+import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,12 +28,12 @@ public class UserValidationService {
      */
     public User validateUserByProviderId(String providerId) {
         if (providerId == null || providerId.trim().isEmpty()) {
-            throw new IllegalArgumentException("ProviderId는 필수입니다");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "ProviderId는 필수입니다");
         }
         
         User user = userRepository.findByProviderId(providerId);
         if (user == null) {
-            throw new IllegalArgumentException("사용자를 찾을 수 없습니다: " + providerId);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "사용자를 찾을 수 없습니다: " + providerId);
         }
         return user;
     }
@@ -41,15 +43,15 @@ public class UserValidationService {
      */
     public User validateUserByUserId(String userId) {
         if (userId == null || userId.trim().isEmpty()) {
-            throw new IllegalArgumentException("UserId는 필수입니다");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "UserId는 필수입니다");
         }
         
         try {
             BigInteger userIdBigInt = new BigInteger(userId);
             return userRepository.findByUserId(userIdBigInt)
-                    .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "사용자를 찾을 수 없습니다: " + userId));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("잘못된 사용자 ID 형식입니다: " + userId);
+            throw new BusinessException(ErrorCode.INVALID_USER_ID_FORMAT, "잘못된 사용자 ID 형식입니다: " + userId);
         }
     }
 
@@ -58,7 +60,7 @@ public class UserValidationService {
      */
     public String extractProviderId(UserDetails userDetails) {
         if (userDetails == null) {
-            throw new IllegalArgumentException("인증된 사용자 정보를 찾을 수 없습니다");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다");
         }
         return userDetails.getUsername();
     }
@@ -84,11 +86,11 @@ public class UserValidationService {
      */
     public void validateUserStatus(User user) {
         if (user.getStatus() == null) {
-            throw new IllegalStateException("사용자 계정 상태가 설정되지 않았습니다");
+            throw new BusinessException(ErrorCode.ACCOUNT_STATUS_ERROR, "사용자 계정 상태가 설정되지 않았습니다");
         }
         
         if (!user.getStatus().name().equals("ACTIVE")) {
-            throw new IllegalStateException("비활성화된 계정입니다");
+            throw new BusinessException(ErrorCode.ACCOUNT_STATUS_ERROR, "비활성화된 계정입니다");
         }
     }
 }

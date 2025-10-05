@@ -8,12 +8,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.github.f4b6a3.tsid.TsidCreator;
 
-import PitterPatter.loventure.authService.constants.ErrorConstants;
 import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
 import PitterPatter.loventure.authService.dto.request.CoupleOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
+import PitterPatter.loventure.authService.exception.BusinessException;
+import PitterPatter.loventure.authService.exception.ErrorCode;
+import PitterPatter.loventure.authService.mapper.CoupleMapper;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
 import PitterPatter.loventure.authService.repository.User;
@@ -27,6 +29,7 @@ public class CoupleService {
 
     private final CoupleRoomRepository coupleRoomRepository;
     private final UserService userService;
+    private final CoupleMapper coupleMapper;
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
@@ -43,7 +46,7 @@ public class CoupleService {
             User user = userService.validateUserByProviderId(providerId);
             // 사용자가 이미 커플 상태인지 확인
             if (isUserAlreadyCoupled(user.getProviderId())) {
-                throw new IllegalArgumentException("이미 커플 상태입니다.");
+                throw new BusinessException(ErrorCode.ALREADY_COUPLED, "이미 커플 상태입니다.");
             }
 
             String inviteCode = generateInviteCode();
@@ -57,13 +60,13 @@ public class CoupleService {
                     .build();
             coupleRoomRepository.save(coupleRoom);
 
-            CreateCoupleRoomResponse response = new CreateCoupleRoomResponse(inviteCode);
+            CreateCoupleRoomResponse response = coupleMapper.toCreateCoupleRoomResponse(inviteCode);
 
             log.info("커플룸 생성 완료 - inviteCode: {}, creatorUserId: {}", inviteCode, providerId);
             return ApiResponse.success(response);
         
-        } catch (IllegalArgumentException e) {
-            return ApiResponse.error(ErrorConstants.ALREADY_COUPLED, e.getMessage());
+        } catch (BusinessException e) {
+            return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
         }
     }
 
@@ -80,7 +83,7 @@ public class CoupleService {
 
             CoupleRoom coupleRoom = validateAndGetCoupleRoom(inviteCode, user.getProviderId());
             if (coupleRoom == null) {
-                return ApiResponse.error(ErrorConstants.INVITE_CODE_NOT_FOUND, "초대 코드가 존재하지 않습니다.");
+                return ApiResponse.error(ErrorCode.INVITE_CODE_NOT_FOUND.getCode(), "초대 코드가 존재하지 않습니다.");
             }
 
             // 매칭 시 coupleId 생성
@@ -90,17 +93,13 @@ public class CoupleService {
             coupleRoom.setStatus(CoupleRoom.CoupleStatus.ACTIVE); // 매칭 완료 시 ACTIVE로 변경
             coupleRoomRepository.save(coupleRoom);
 
-            CoupleMatchResponse response = new CoupleMatchResponse(
-                    coupleId,
-                    coupleRoom.getCreatorUserId(),
-                    user.getProviderId()
-            );
+            CoupleMatchResponse response = coupleMapper.toCoupleMatchResponse(coupleRoom, user);
 
             log.info("커플 매칭 완료 - coupleId: {}, partnerUserId: {}", coupleId, user.getProviderId());
             return ApiResponse.success(response, "커플 매칭 완료");
             
-        } catch (IllegalArgumentException e) {
-            return ApiResponse.error(ErrorConstants.ALREADY_MATCHED_CODE, e.getMessage());
+        } catch (BusinessException e) {
+            return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
         }
     }
 
@@ -121,15 +120,15 @@ public class CoupleService {
 
         // PENDING 상태가 아니면 매칭할 수 없음
         if (coupleRoom.getStatus() != CoupleRoom.CoupleStatus.PENDING) {
-            throw new IllegalArgumentException("매칭 대기 중이지 않은 초대 코드입니다.");
+            throw new BusinessException(ErrorCode.ALREADY_MATCHED_CODE, "매칭 대기 중이지 않은 초대 코드입니다.");
         }
 
         if (coupleRoom.getCreatorUserId().equals(providerId)) {
-            throw new IllegalArgumentException("자기 자신과는 매칭할 수 없습니다.");
+            throw new BusinessException(ErrorCode.ALREADY_MATCHED_CODE, "자기 자신과는 매칭할 수 없습니다.");
         }
 
         if (coupleRoom.getPartnerUserId() != null) {
-            throw new IllegalArgumentException("이미 다른 사용자와 매칭된 초대 코드입니다.");
+            throw new BusinessException(ErrorCode.ALREADY_MATCHED_CODE, "이미 다른 사용자와 매칭된 초대 코드입니다.");
         }
 
         return coupleRoom;
@@ -142,12 +141,12 @@ public class CoupleService {
     public ApiResponse<Void> cancelCouple(String coupleId) {
         Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCoupleId(coupleId);
         if (coupleRoomOpt.isEmpty()) {
-            return ApiResponse.error(ErrorConstants.COUPLE_NOT_FOUND, "존재하지 않는 커플입니다.");
+            return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "존재하지 않는 커플입니다.");
         }
 
         CoupleRoom coupleRoom = coupleRoomOpt.get();
         if (coupleRoom.getStatus() == CoupleRoom.CoupleStatus.DEACTIVED) {
-            return ApiResponse.error(ErrorConstants.ALREADY_CANCELLED, "커플 상태가 이미 해제되었습니다.");
+            return ApiResponse.error(ErrorCode.ALREADY_CANCELLED.getCode(), "커플 상태가 이미 해제되었습니다.");
         }
 
         coupleRoom.setStatus(CoupleRoom.CoupleStatus.DEACTIVED);
@@ -163,7 +162,7 @@ public class CoupleService {
     public ApiResponse<Void> createOrUpdateOnboarding(String coupleId, CoupleOnboardingRequest request) {
         Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCoupleId(coupleId);
         if (coupleRoomOpt.isEmpty()) {
-            return ApiResponse.error(ErrorConstants.COUPLE_NOT_FOUND, "존재하지 않는 커플입니다.");
+            return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "존재하지 않는 커플입니다.");
         }
 
         // CoupleRoom에 coupleHomeName과 datingStartDate 저장

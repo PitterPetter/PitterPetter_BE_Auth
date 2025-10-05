@@ -87,7 +87,8 @@ public class User {
     @PrePersist
     public void createUserId() {
         if (this.userId == null) {
-            this.userId = new BigInteger(TsidCreator.getTsid().toString());
+            // TSID를 BigInteger로 변환 (TSID는 64비트 정수)
+            this.userId = BigInteger.valueOf(TsidCreator.getTsid().toLong());
         }
     }
     

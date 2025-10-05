@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import PitterPatter.loventure.authService.dto.UserDto;
 import PitterPatter.loventure.authService.dto.request.OnboardingRequest;
+import PitterPatter.loventure.authService.exception.BusinessException;
+import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -93,5 +95,34 @@ public class UserService {
     public String extractUserId(UserDetails userDetails) {
         User user = getUserFromUserDetails(userDetails);
         return user.getUserId().toString();
+    }
+    
+    /**
+     * userId로 사용자 조회 (BigInteger)
+     */
+    public User getUserById(BigInteger userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+    
+    /**
+     * userId로 사용자 조회 (String)
+     */
+    public User getUserById(String userId) {
+        try {
+            BigInteger userIdBigInt = new BigInteger(userId);
+            return getUserById(userIdBigInt);
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ErrorCode.INVALID_USER_ID_FORMAT);
+        }
+    }
+    
+    /**
+     * 사용자 삭제 (소프트 삭제)
+     */
+    @Transactional
+    public void deleteUser(User user) {
+        user.setStatus(PitterPatter.loventure.authService.repository.AccountStatus.DEACTIVATED);
+        userRepository.save(user);
     }
 }

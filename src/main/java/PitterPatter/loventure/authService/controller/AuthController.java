@@ -70,9 +70,9 @@ public class AuthController {
             }
 
             AuthResponse authResponse = authService.refreshToken(refreshToken);
-            if (authResponse.isSuccess()) {
+            if (authResponse.success()) {
                 // 새로운 refresh token을 쿠키에 저장
-                authService.setRefreshTokenCookie(response, authResponse.getRefreshToken());
+                authService.setRefreshTokenCookie(response, authResponse.refreshToken());
                 return ResponseEntity.ok(authResponse);
             } else {
                 return ResponseEntity.badRequest().body(authResponse);
@@ -131,15 +131,15 @@ public class AuthController {
                         .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
             }
 
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(user.getUserId().toString())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .providerType(user.getProviderType().name())
-                    .providerId(user.getProviderId())
-                    .status(user.getStatus().name())
-                    .isNewUser(false)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    user.getUserId().toString(),
+                    user.getEmail(),
+                    user.getName(),
+                    user.getProviderType().name(),
+                    user.getProviderId(),
+                    user.getStatus().name(),
+                    false
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -272,11 +272,11 @@ public class AuthController {
 
             User savedUser = userRepository.save(newUser);
 
-            SignupResponse signupResponse = SignupResponse.builder()
-                    .userId(savedUser.getUserId().toString())
-                    .createdAt(savedUser.getCreatedAt())
-                    .updatedAt(savedUser.getUpdatedAt())
-                    .build();
+            SignupResponse signupResponse = new SignupResponse(
+                    savedUser.getUserId().toString(),
+                    savedUser.getCreatedAt(),
+                    savedUser.getUpdatedAt()
+            );
 
             return ResponseEntity.ok(ApiResponse.success(signupResponse));
 

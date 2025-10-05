@@ -49,10 +49,14 @@ public class AuthService {
                 User emailUser = userRepository.findByEmail(email);
                 if (emailUser != null) {
                     log.warn("이미 존재하는 이메일로 가입 시도: {}", email);
-                    return AuthResponse.builder()
-                            .success(false)
-                            .message("이미 가입된 이메일입니다")
-                            .build();
+                    return new AuthResponse(
+                            false,
+                            "이미 가입된 이메일입니다",
+                            null,
+                            null,
+                            null,
+                            null
+                    );
                 }
 
                 // 신규 사용자 생성
@@ -79,10 +83,14 @@ public class AuthService {
             // 4. 계정 상태 확인 -> 필요 없으면 삭제 가능
             if (existingUser.getStatus() != AccountStatus.ACTIVE) {
                 log.warn("비활성화된 계정으로 로그인 시도: userId={}", existingUser.getUserId());
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("비활성화된 계정입니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "비활성화된 계정입니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
             // 5. 사용자의 커플 정보 조회
@@ -98,32 +106,36 @@ public class AuthService {
             String refreshToken = jwtUtil.createRefreshToken(existingUser.getProviderId());
 
             // 6. 사용자 정보 구성
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(existingUser.getUserId().toString())
-                    .email(existingUser.getEmail())
-                    .name(existingUser.getName())
-                    .providerType(existingUser.getProviderType().name())
-                    .providerId(existingUser.getProviderId())
-                    .status(existingUser.getStatus().name())
-                    .isNewUser(isNewUser)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    existingUser.getUserId().toString(),
+                    existingUser.getEmail(),
+                    existingUser.getName(),
+                    existingUser.getProviderType().name(),
+                    existingUser.getProviderId(),
+                    existingUser.getStatus().name(),
+                    isNewUser
+            );
 
             // 7. 성공 응답 생성
-            return AuthResponse.builder()
-                    .success(true)
-                    .message(isNewUser ? "회원가입 및 로그인 성공" : "로그인 성공")
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .expiresIn(3600L) // 1시간 (초 단위)
-                    .user(userInfo)
-                    .build();
+            return new AuthResponse(
+                    true,
+                    isNewUser ? "회원가입 및 로그인 성공" : "로그인 성공",
+                    accessToken,
+                    refreshToken,
+                    3600L, // 1시간 (초 단위)
+                    userInfo
+            );
 
         } catch (Exception e) {
             log.error("OAuth2 로그인 처리 중 오류 발생: {}", e.getMessage(), e);
-            return AuthResponse.builder()
-                    .success(false)
-                    .message("로그인 처리 중 오류가 발생했습니다")
-                    .build();
+            return new AuthResponse(
+                    false,
+                    "로그인 처리 중 오류가 발생했습니다",
+                    null,
+                    null,
+                    null,
+                    null
+            );
         }
     }
     
@@ -152,51 +164,63 @@ public class AuthService {
         try {
             // 리프레시 토큰 검증
             if (jwtUtil.isTokenExpired(refreshToken)) {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("리프레시 토큰이 만료되었습니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "리프레시 토큰이 만료되었습니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
             String providerId = jwtUtil.getUsername(refreshToken);
             User user = userRepository.findByProviderId(providerId);
 
             if (user == null || user.getStatus() != AccountStatus.ACTIVE) {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("유효하지 않은 사용자입니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "유효하지 않은 사용자입니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
             // 새로운 액세스 토큰 생성 (userID 포함)
             String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 60 * 60 * 1000L);
             String newRefreshToken = jwtUtil.createRefreshToken(providerId);
 
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(user.getUserId().toString())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .providerType(user.getProviderType().name())
-                    .providerId(user.getProviderId())
-                    .status(user.getStatus().name())
-                    .isNewUser(false)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    user.getUserId().toString(),
+                    user.getEmail(),
+                    user.getName(),
+                    user.getProviderType().name(),
+                    user.getProviderId(),
+                    user.getStatus().name(),
+                    false
+            );
 
-            return AuthResponse.builder()
-                    .success(true)
-                    .message("토큰 갱신 성공")
-                    .accessToken(newAccessToken)
-                    .refreshToken(newRefreshToken)
-                    .expiresIn(3600L)
-                    .user(userInfo)
-                    .build();
+            return new AuthResponse(
+                    true,
+                    "토큰 갱신 성공",
+                    newAccessToken,
+                    newRefreshToken,
+                    3600L,
+                    userInfo
+            );
 
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
-            return AuthResponse.builder()
-                    .success(false)
-                    .message("토큰 갱신 중 오류가 발생했습니다")
-                    .build();
+            return new AuthResponse(
+                    false,
+                    "토큰 갱신 중 오류가 발생했습니다",
+                    null,
+                    null,
+                    null,
+                    null
+            );
         }
     }
 
