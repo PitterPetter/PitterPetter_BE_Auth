@@ -1,80 +1,126 @@
 package PitterPatter.loventure.authService.dto.response;
 
-import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 import PitterPatter.loventure.authService.repository.CoupleOnboarding;
-import PitterPatter.loventure.authService.repository.Gender;
-import PitterPatter.loventure.authService.repository.TodayCondition;
+import PitterPatter.loventure.authService.repository.CoupleRoom;
+import PitterPatter.loventure.authService.repository.FavoriteFoodCategories;
 import PitterPatter.loventure.authService.repository.User;
-import lombok.Builder; // [New] Optional import
-import lombok.Getter;
 
-@Getter
-@Builder
-public class RecommendationDataResponse {
-    private UserData userData;
-    private CoupleData coupleData; // 커플이 아닐 경우 null
-
-    // User 엔티티에서 UserData DTO로 변환하는 팩토리 메서드
-    public static UserData fromUserEntity(User user) {
-        return UserData.builder()
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .birthDate(user.getBirthDate())
-                // Enum을 String으로 변환 (수정: Optional을 사용하여 null-safe하게 toString() 호출)
-                .gender(Optional.ofNullable(user.getGender())
-                        .map(Gender::toString)
-                        .orElse(null))
-                .alcoholPreference(user.getAlcoholPreference())
-                .activeBound(user.getActiveBound())
-                // List<Enum>을 List<String>으로 변환 (toString() 사용)
-                .favoriteFoodCategories(user.getFavoriteFoodCategories().stream()
-                        .map(e -> e.toString())
-                        .collect(Collectors.toList()))
-                // Enum을 String으로 변환 (수정: Optional을 사용하여 null-safe하게 toString() 호출)
-                .dateCostPreference(Optional.ofNullable(user.getDateCostPreference())
-                        .map(e -> e.toString())
-                        .orElse(null))
-                .preferredAtmosphere(user.getPreferredAtmosphere())
-                .build();
+/**
+ * AI 서비스에서 사용할 사용자 및 커플 데이터 응답 DTO
+ * record 기반으로 변경하여 불변성과 간결성 확보
+ */
+public record RecommendationDataResponse(
+        UserData userData,
+        CoupleData coupleData
+) {
+    
+    /**
+     * 사용자 데이터 record - feature/PIT-328의 상세한 사용자 정보 포함
+     */
+    public record UserData(
+            String userId,
+            String email,
+            String name,
+            LocalDateTime birthDate,
+            String gender,
+            Integer alcoholPreference,
+            Integer activeBound,
+            List<FavoriteFoodCategories> favoriteFoodCategories,
+            String dateCostPreference,
+            String preferredAtmosphere,
+            String providerType,
+            String providerId,
+            String status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {}
+    
+    /**
+     * 커플 데이터 record - CoupleOnboarding 정보 포함
+     */
+    public record CoupleData(
+            String coupleId,
+            String coupleHomeName,
+            String creatorUserId,
+            String partnerUserId,
+            LocalDateTime datingStartDate,
+            String status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            CoupleOnboardingData onboardingData
+    ) {}
+    
+    /**
+     * 커플 온보딩 데이터 record - feature/PIT-328의 상세한 온보딩 정보
+     */
+    public record CoupleOnboardingData(
+            String onboardingId,
+            String todayCondition,
+            String drinking,
+            String hateFood,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {}
+    
+    /**
+     * User 엔티티와 CoupleRoom 엔티티로부터 RecommendationDataResponse 생성
+     * 팩토리 메서드 패턴 적용 - feature/PIT-328의 상세한 정보 포함
+     */
+    public static RecommendationDataResponse from(User user, CoupleRoom coupleRoom, CoupleOnboarding coupleOnboarding) {
+        UserData userData = new UserData(
+                user.getUserId().toString(),
+                user.getEmail(),
+                user.getName(),
+                user.getBirthDate(),
+                user.getGender() != null ? user.getGender().name() : null,
+                user.getAlcoholPreference(),
+                user.getActiveBound(),
+                user.getFavoriteFoodCategories(),
+                user.getDateCostPreference() != null ? user.getDateCostPreference().name() : null,
+                user.getPreferredAtmosphere(),
+                user.getProviderType().name(),
+                user.getProviderId(),
+                user.getStatus().name(),
+                user.getCreatedAt(),
+                user.getUpdatedAt()
+        );
+        
+        CoupleData coupleData = coupleRoom != null ? new CoupleData(
+                coupleRoom.getCoupleId(),
+                coupleRoom.getCoupleHomeName(),
+                coupleRoom.getCreatorUserId(),
+                coupleRoom.getPartnerUserId(),
+                coupleRoom.getDatingStartDate(),
+                coupleRoom.getStatus().name(),
+                coupleRoom.getCreatedAt(),
+                coupleRoom.getUpdatedAt(),
+                coupleOnboarding != null ? new CoupleOnboardingData(
+                        coupleOnboarding.getOnboardingId(),
+                        coupleOnboarding.getTodayCondition() != null ? coupleOnboarding.getTodayCondition().name() : null,
+                        coupleOnboarding.getDrinking(),
+                        coupleOnboarding.getHateFood(),
+                        coupleOnboarding.getCreatedAt(),
+                        coupleOnboarding.getUpdatedAt()
+                ) : null
+        ) : null;
+        
+        return new RecommendationDataResponse(userData, coupleData);
     }
-
-    // CoupleOnboarding 엔티티에서 CoupleData DTO로 변환하는 팩토리 메서드
-    public static CoupleData fromCoupleOnboardingAndId(CoupleOnboarding coupleOnboarding, String coupleId) {
-        return CoupleData.builder()
-                .coupleId(coupleId)
-                .todayCondition(coupleOnboarding.getTodayCondition())
-                .drinking(coupleOnboarding.getDrinking())
-                .hateFood(coupleOnboarding.getHateFood())
-                .build();
+    
+    /**
+     * User 엔티티만으로 RecommendationDataResponse 생성 (커플이 없는 경우)
+     */
+    public static RecommendationDataResponse from(User user) {
+        return from(user, null, null);
     }
-
-    @Getter
-    @Builder
-    public static class UserData {
-        private BigInteger userId;
-        private String email;
-        private String name;
-        private LocalDateTime birthDate;
-        private String gender;
-        private Integer alcoholPreference;
-        private Integer activeBound;
-        private List<String> favoriteFoodCategories;
-        private String dateCostPreference;
-        private String preferredAtmosphere;
-    }
-
-    @Getter
-    @Builder
-    public static class CoupleData {
-        private String coupleId;
-        private TodayCondition todayCondition;
-        private String drinking;
-        private String hateFood;
+    
+    /**
+     * User 엔티티와 CoupleRoom 엔티티로부터 RecommendationDataResponse 생성 (CoupleOnboarding 없이)
+     */
+    public static RecommendationDataResponse from(User user, CoupleRoom coupleRoom) {
+        return from(user, coupleRoom, null);
     }
 }

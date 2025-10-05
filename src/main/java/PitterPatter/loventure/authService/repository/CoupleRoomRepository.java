@@ -26,5 +26,8 @@ public interface CoupleRoomRepository extends JpaRepository<CoupleRoom, String> 
     boolean existsByCreatorUserIdAndStatus(String creatorUserId, CoupleRoom.CoupleStatus status);
 
     boolean existsByPartnerUserIdAndStatus(String partnerUserId, CoupleRoom.CoupleStatus status);
+
+    @Query("SELECT c FROM CoupleRoom c WHERE (c.creatorUserId = :providerId OR c.partnerUserId = :providerId) AND c.status = :status")
+    Optional<CoupleRoom> findByCreatorUserIdOrPartnerUserIdAndStatus(@Param("providerId") String providerId, @Param("status") CoupleRoom.CoupleStatus status);
 }
 

@@ -3,6 +3,7 @@ package PitterPatter.loventure.authService.controller;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import PitterPatter.loventure.authService.constants.RedirectStatus;
 import PitterPatter.loventure.authService.dto.request.LoginRequest;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
@@ -26,6 +28,8 @@ import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.security.JWTUtil;
 import PitterPatter.loventure.authService.service.AuthService;
+import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,6 +45,17 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
     private final JWTUtil jwtUtil;
+    private final UserService userService;
+    private final CoupleService coupleService;
+
+    @Value("${spring.jwt.redirect.onboarding}")
+    private String onboardingRedirectUrl;
+
+    @Value("${spring.jwt.redirect.coupleroom}")
+    private String coupleroomRedirectUrl;
+
+    @Value("${spring.jwt.redirect.home}")
+    private String homeRedirectUrl;
     /**
      * 토큰 갱신 (쿠키에서 refresh token 읽기)
      */
@@ -48,16 +63,16 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
         try {
             // 쿠키에서 refresh token 추출
-            String refreshToken = getRefreshTokenFromCookie(request);
+            String refreshToken = authService.getRefreshTokenFromCookie(request);
             if (refreshToken == null) {
                 return ResponseEntity.badRequest()
                         .body(ErrorResponse.of("리프레시 토큰이 없습니다", "REFRESH_TOKEN_NOT_FOUND"));
             }
 
             AuthResponse authResponse = authService.refreshToken(refreshToken);
-            if (authResponse.isSuccess()) {
+            if (authResponse.success()) {
                 // 새로운 refresh token을 쿠키에 저장
-                setRefreshTokenCookie(response, authResponse.getRefreshToken());
+                authService.setRefreshTokenCookie(response, authResponse.refreshToken());
                 return ResponseEntity.ok(authResponse);
             } else {
                 return ResponseEntity.badRequest().body(authResponse);
@@ -116,15 +131,15 @@ public class AuthController {
                         .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
             }
 
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(user.getTsid())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .providerType(user.getProviderType().name())
-                    .providerId(user.getProviderId())
-                    .status(user.getStatus().name())
-                    .isNewUser(false)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    user.getUserId().toString(),
+                    user.getEmail(),
+                    user.getName(),
+                    user.getProviderType().name(),
+                    user.getProviderId(),
+                    user.getStatus().name(),
+                    false
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -153,7 +168,7 @@ public class AuthController {
             }
 
             // Refresh token 쿠키 삭제
-            clearRefreshTokenCookie(response);
+            authService.clearRefreshTokenCookie(response);
 
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("success", true);
@@ -168,18 +183,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Refresh token 쿠키 삭제
-     */
-    private void clearRefreshTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("refresh_token", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0); // 즉시 삭제
-        response.addCookie(cookie);
-        log.info("Refresh token 쿠키 삭제 완료");
-    }
 
     /**
      * 계정 상태 확인
@@ -269,11 +272,11 @@ public class AuthController {
 
             User savedUser = userRepository.save(newUser);
 
-            SignupResponse signupResponse = SignupResponse.builder()
-                    .userId(savedUser.getTsid().toString())
-                    .createdAt(savedUser.getCreatedAt())
-                    .updatedAt(savedUser.getUpdatedAt())
-                    .build();
+            SignupResponse signupResponse = new SignupResponse(
+                    savedUser.getUserId().toString(),
+                    savedUser.getCreatedAt(),
+                    savedUser.getUpdatedAt()
+            );
 
             return ResponseEntity.ok(ApiResponse.success(signupResponse));
 
@@ -281,6 +284,70 @@ public class AuthController {
             log.error("회원가입 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")"));
+        }
+    }
+
+    /**
+     * 사용자 상태별 리다이렉트 URL 반환
+     * - 신규회원 또는 개인 온보딩 미완료: /onboarding
+     * - 개인 온보딩 완료, 커플 매칭 미완료: /coupleroom
+     * - 개인 온보딩 및 커플 매칭 모두 완료: /home
+     */
+    @GetMapping("/redirect")
+    public ResponseEntity<?> getUserRedirectUrl(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+            }
+
+            String providerId = userDetails.getUsername();
+            User user = userRepository.findByProviderId(providerId);
+
+            if (user == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
+            }
+
+            // 개인 온보딩 완료 여부 확인
+            boolean isOnboardingCompleted = userService.isOnboardingCompleted(user);
+            
+            // 커플 매칭 상태 확인
+            boolean isCoupled = coupleService.isUserCoupled(providerId);
+
+            String redirectUrl;
+            String status;
+
+            if (!isOnboardingCompleted) {
+                // 신규회원 또는 개인 온보딩 미완료
+                redirectUrl = onboardingRedirectUrl;
+                status = RedirectStatus.ONBOARDING_REQUIRED;
+            } else if (!isCoupled) {
+                // 개인 온보딩 완료, 커플 매칭 미완료
+                redirectUrl = coupleroomRedirectUrl;
+                status = RedirectStatus.COUPLE_MATCHING_REQUIRED;
+            } else {
+                // 개인 온보딩 및 커플 매칭 모두 완료
+                redirectUrl = homeRedirectUrl;
+                status = RedirectStatus.COMPLETED;
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("redirectUrl", redirectUrl);
+            response.put("status", status);
+            response.put("isOnboardingCompleted", isOnboardingCompleted);
+            response.put("isCoupled", isCoupled);
+
+            log.info("사용자 리다이렉트 URL 반환 - userId: {}, status: {}, redirectUrl: {}", 
+                    user.getUserId(), status, redirectUrl);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("사용자 리다이렉트 URL 조회 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ErrorResponse.of("사용자 리다이렉트 URL 조회 중 오류가 발생했습니다", "REDIRECT_URL_ERROR"));
         }
     }
 }

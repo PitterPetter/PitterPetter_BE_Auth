@@ -7,6 +7,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -29,8 +31,9 @@ public class CoupleOnboarding {
     @Column(name = "couple_id", nullable = false)
     private String coupleId;
     
+    @Enumerated(EnumType.STRING)
     @Column(name = "today_condition")
-    private Integer todayCondition;
+    private TodayCondition todayCondition;
     
     @Column(name = "drinking", length = 1)
     private String drinking;

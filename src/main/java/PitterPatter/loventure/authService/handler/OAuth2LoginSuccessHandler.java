@@ -64,9 +64,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
             AuthResponse authResponse = authService.processOAuth2Login(oAuth2UserInfo, registrationId);
             
-            if (!authResponse.isSuccess()) {
-                log.error("OAuth2 로그인 처리 실패: {}", authResponse.getMessage());
-                redirectToFailure(request, response, authResponse.getMessage());
+            if (!authResponse.success()) {
+                log.error("OAuth2 로그인 처리 실패: {}", authResponse.message());
+                redirectToFailure(request, response, authResponse.message());
                 return;
             }
 
@@ -157,15 +157,15 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private String buildSuccessRedirectUrl(AuthResponse authResponse) {
         StringBuilder url = new StringBuilder();
         
-        if (authResponse.getUser().isNewUser()) {
+        if (authResponse.user().isNewUser()) {
             // 신규 사용자: 온보딩 페이지로 리다이렉트
             url.append(REDIRECT_URI_BASE).append("/onboarding?");
-            url.append("access_token=").append(authResponse.getAccessToken());
+            url.append("access_token=").append(authResponse.accessToken());
             log.info("신규 사용자 온보딩 페이지로 리다이렉트");
         } else {
             // 기존 사용자: 홈 페이지로 리다이렉트
             url.append(REDIRECT_URI_BASE).append("/home?");
-            url.append("access_token=").append(authResponse.getAccessToken());
+            url.append("access_token=").append(authResponse.accessToken());
             log.info("기존 사용자 홈 페이지로 리다이렉트");
         }
         

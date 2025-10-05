@@ -9,6 +9,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import PitterPatter.loventure.authService.handler.OAuth2LoginFailureHandler;
 import PitterPatter.loventure.authService.handler.OAuth2LoginSuccessHandler;
@@ -27,10 +30,22 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final UserRepository userRepository;
 
-    // [수정] OAuth2 인증 요청을 쿠키에 저장하는 리포지토리 (STATELESS 환경에 적합)
+
+    // CORS 설정 (AI 서비스와의 연동을 위해)
     @Bean
-    public CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository() {
-        return new CookieOAuth2AuthorizationRequestRepository();
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // 허용할 Origin 설정
+        configuration.addAllowedOriginPattern("*"); // 개발 환경에서는 모든 Origin 허용
+        configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
+        configuration.addAllowedHeader("*"); // 모든 헤더 허용
+        configuration.setAllowCredentials(true); // 쿠키 허용
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        
+        return source;
     }
 
     @Bean
@@ -41,24 +56,22 @@ public class SecurityConfig {
         http
                 .csrf((csrf) -> csrf.disable())
                 .formLogin((formLogin) -> formLogin.disable())
-                .httpBasic((httpBasic) -> httpBasic.disable());
+                .httpBasic((httpBasic) -> httpBasic.disable())
+                .cors((cors) -> cors.configurationSource(corsConfigurationSource())); // CORS 설정 적용
 
-        // 세션 관리 정책: STATELESS (JWT 사용을 위함)
-        // 세션을 통해 사용자의 로그인 상태를 기억하면 보안적인 문제가 생김
-        // JWT를 이용해 refresh 등의 작업을 이용해서 처리하기 위해 로그인 상태를 기억하지 않게 STATELESS 처리
-
+        // 세션 관리 정책: IF_REQUIRED (OAuth2 인증을 위해 필요시에만 세션 생성)
+        // OAuth2 인증 과정에서는 세션이 필요하지만, 인증 후에는 JWT를 사용
         http
                 .sessionManagement((session) -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)); 
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(false));
 
         // OAuth2 로그인 설정
         http
                 .oauth2Login((oauth2) -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler) // 로그인 성공 핸들러로 이동 -> 유저를 DB에 저장하거나 조회 후 실행, JWT 발급
                         .failureHandler(oAuth2LoginFailureHandler) // 로그인 실패 핸들러로 이동
-                        // [수정] 쿠키 기반 AuthorizationRequestRepository 사용 (STATELESS 환경에 적합)
-                        .authorizationEndpoint(authorizationEndpointConfig -> authorizationEndpointConfig
-                                .authorizationRequestRepository(authorizationRequestRepository()))
                         .userInfoEndpoint(userInfoEndpointConfig -> userInfoEndpointConfig
                                 .userService(customOAuth2UserService))); // 실제 유저 정보 처리 service
 
@@ -72,6 +85,7 @@ public class SecurityConfig {
                                 "/api/auth/signup", "/api/auth/login/**",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
+                        .requestMatchers("/api/users/recommendation-data/**").permitAll() // AI 서비스에서 호출하는 API 허용
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();

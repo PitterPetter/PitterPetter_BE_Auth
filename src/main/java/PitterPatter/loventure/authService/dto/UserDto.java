@@ -1,22 +1,19 @@
 package PitterPatter.loventure.authService.dto;
 
+import java.math.BigInteger;
+
 import PitterPatter.loventure.authService.repository.User;
-import lombok.Builder;
-import lombok.Getter;
 
-@Getter
-@Builder
-public class UserDto {
-    private Long userId;
-    private String email;
-    private String name;
-
-
+public record UserDto(
+    BigInteger userId,
+    String email,
+    String name
+) {
     public static UserDto from(User user) {
-        return UserDto.builder()
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .build();
+        return new UserDto(
+                user.getUserId(),
+                user.getEmail(),
+                user.getName()
+        );
     }
 }
