@@ -4,10 +4,10 @@ spring:
   cloud:
     config:
       uri: http://config-server.config-server.svc.cluster.local:80
-      name: gateway
+      name: auth-service
       label: main
       fail-fast: true
   application:
-    name: gateway
+    name: auth-service
   profiles:
     active: prod
