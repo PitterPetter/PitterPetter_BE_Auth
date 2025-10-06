@@ -5,10 +5,10 @@ spring:
     config:
       uri: http://config-server.config-server.svc.cluster.local:80
       search-paths: '{application}'
-      name: content-service
+      name: auth-service
       label: main
       fail-fast: true
   application:
-    name: content-service
+    name: auth-service
   profiles:
     active: prod
