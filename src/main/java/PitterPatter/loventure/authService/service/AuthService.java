@@ -1,15 +1,22 @@
 package PitterPatter.loventure.authService.service;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.OAuth2UserInfo;
+import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.repository.AccountStatus;
+import PitterPatter.loventure.authService.repository.CoupleRoom;
+import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
 import PitterPatter.loventure.authService.repository.ProviderType;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.security.JWTUtil;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final CoupleRoomRepository coupleRoomRepository;
     private final JWTUtil jwtUtil;
 
     // 인증 후 서비스 이용을 위한 최종 endpoint(?)
@@ -41,10 +49,14 @@ public class AuthService {
                 User emailUser = userRepository.findByEmail(email);
                 if (emailUser != null) {
                     log.warn("이미 존재하는 이메일로 가입 시도: {}", email);
-                    return AuthResponse.builder()
-                            .success(false)
-                            .message("이미 가입된 이메일입니다")
-                            .build();
+                    return new AuthResponse(
+                            false,
+                            "이미 가입된 이메일입니다",
+                            null,
+                            null,
+                            null,
+                            null
+                    );
                 }
 
                 // 신규 사용자 생성
@@ -71,43 +83,79 @@ public class AuthService {
             // 4. 계정 상태 확인 -> 필요 없으면 삭제 가능
             if (existingUser.getStatus() != AccountStatus.ACTIVE) {
                 log.warn("비활성화된 계정으로 로그인 시도: userId={}", existingUser.getUserId());
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("비활성화된 계정입니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "비활성화된 계정입니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
-            // 5. JWT 토큰 생성 (userID 포함)
-            String accessToken = jwtUtil.createJwtWithUserId(existingUser.getProviderId(), existingUser.getUserId(), 60 * 60 * 1000L); // 1시간
+            // 5. 사용자의 커플 정보 조회
+            String coupleId = getCoupleIdByProviderId(existingUser.getProviderId());
+            
+            // 6. JWT 토큰 생성 (userId와 coupleId 포함)
+            String accessToken = jwtUtil.createJwtWithUserIdAndCoupleId(
+                existingUser.getProviderId(), 
+                existingUser.getUserId(), 
+                coupleId, 
+                10 * 60 * 1000L
+            ); // 10분
             String refreshToken = jwtUtil.createRefreshToken(existingUser.getProviderId());
 
             // 6. 사용자 정보 구성
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(existingUser.getUserId())
-                    .email(existingUser.getEmail())
-                    .name(existingUser.getName())
-                    .providerType(existingUser.getProviderType().name())
-                    .providerId(existingUser.getProviderId())
-                    .status(existingUser.getStatus().name())
-                    .isNewUser(isNewUser)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    existingUser.getUserId().toString(),
+                    existingUser.getEmail(),
+                    existingUser.getName(),
+                    existingUser.getProviderType().name(),
+                    existingUser.getProviderId(),
+                    existingUser.getStatus().name(),
+                    isNewUser
+            );
 
             // 7. 성공 응답 생성
-            return AuthResponse.builder()
-                    .success(true)
-                    .message(isNewUser ? "회원가입 및 로그인 성공" : "로그인 성공")
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .expiresIn(3600L) // 1시간 (초 단위)
-                    .user(userInfo)
-                    .build();
+            return new AuthResponse(
+                    true,
+                    isNewUser ? "회원가입 및 로그인 성공" : "로그인 성공",
+                    accessToken,
+                    refreshToken,
+                    3600L, // 1시간 (초 단위)
+                    userInfo
+            );
 
         } catch (Exception e) {
             log.error("OAuth2 로그인 처리 중 오류 발생: {}", e.getMessage(), e);
-            return AuthResponse.builder()
-                    .success(false)
-                    .message("로그인 처리 중 오류가 발생했습니다")
-                    .build();
+            return new AuthResponse(
+                    false,
+                    "로그인 처리 중 오류가 발생했습니다",
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+    }
+    
+    /**
+     * 사용자의 커플 ID 조회
+     */
+    private String getCoupleIdByProviderId(String providerId) {
+        try {
+            // 사용자가 생성자이거나 파트너인 활성 상태의 커플룸 조회
+            Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCreatorUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE)
+                    .or(() -> coupleRoomRepository.findByPartnerUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE));
+            
+            if (coupleRoomOpt.isPresent()) {
+                return coupleRoomOpt.get().getCoupleId();
+            }
+            
+            return null; // 커플이 아닌 경우
+        } catch (Exception e) {
+            log.warn("커플 정보 조회 중 오류 발생: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -116,51 +164,102 @@ public class AuthService {
         try {
             // 리프레시 토큰 검증
             if (jwtUtil.isTokenExpired(refreshToken)) {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("리프레시 토큰이 만료되었습니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "리프레시 토큰이 만료되었습니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
             String providerId = jwtUtil.getUsername(refreshToken);
             User user = userRepository.findByProviderId(providerId);
 
             if (user == null || user.getStatus() != AccountStatus.ACTIVE) {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("유효하지 않은 사용자입니다")
-                        .build();
+                return new AuthResponse(
+                        false,
+                        "유효하지 않은 사용자입니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
             }
 
             // 새로운 액세스 토큰 생성 (userID 포함)
-            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 60 * 60 * 1000L);
+            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 10 * 60 * 1000L);
             String newRefreshToken = jwtUtil.createRefreshToken(providerId);
 
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(user.getUserId())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .providerType(user.getProviderType().name())
-                    .providerId(user.getProviderId())
-                    .status(user.getStatus().name())
-                    .isNewUser(false)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    user.getUserId().toString(),
+                    user.getEmail(),
+                    user.getName(),
+                    user.getProviderType().name(),
+                    user.getProviderId(),
+                    user.getStatus().name(),
+                    false
+            );
 
-            return AuthResponse.builder()
-                    .success(true)
-                    .message("토큰 갱신 성공")
-                    .accessToken(newAccessToken)
-                    .refreshToken(newRefreshToken)
-                    .expiresIn(3600L)
-                    .user(userInfo)
-                    .build();
+            return new AuthResponse(
+                    true,
+                    "토큰 갱신 성공",
+                    newAccessToken,
+                    newRefreshToken,
+                    3600L,
+                    userInfo
+            );
 
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
-            return AuthResponse.builder()
-                    .success(false)
-                    .message("토큰 갱신 중 오류가 발생했습니다")
-                    .build();
+            return new AuthResponse(
+                    false,
+                    "토큰 갱신 중 오류가 발생했습니다",
+                    null,
+                    null,
+                    null,
+                    null
+            );
         }
+    }
+
+    /**
+     * 쿠키에서 refresh token 추출
+     */
+    public String getRefreshTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refresh_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Refresh token을 HttpOnly 쿠키에 저장
+     */
+    public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie("refresh_token", refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
+        response.addCookie(cookie);
+    }
+
+    /**
+     * Refresh token 쿠키 삭제
+     */
+    public void clearRefreshTokenCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("refresh_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // 즉시 삭제
+        response.addCookie(cookie);
+        log.info("Refresh token 쿠키 삭제 완료");
     }
 }

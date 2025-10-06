@@ -1,5 +1,6 @@
 package PitterPatter.loventure.authService.repository;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +17,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
@@ -28,10 +27,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-enum Gender {
-    MALE, FEMALE, OTHER
-}
-
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -41,8 +36,8 @@ enum Gender {
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userId;
+    @Column(unique = true, nullable = false)
+    private BigInteger userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -78,9 +73,6 @@ public class User {
 
     private String preferredAtmosphere;
 
-    @Column(unique = true, nullable = false)
-    private Long tsid;
-
     @Enumerated(EnumType.STRING)
     private AccountStatus status;
 
@@ -93,9 +85,10 @@ public class User {
     private Integer rerollCount;
 
     @PrePersist
-    public void createTsid() {
-        if (this.tsid == null) {
-            this.tsid = TsidCreator.getTsid().toLong();
+    public void createUserId() {
+        if (this.userId == null) {
+            // TSID를 BigInteger로 변환 (TSID는 64비트 정수)
+            this.userId = BigInteger.valueOf(TsidCreator.getTsid().toLong());
         }
     }
     

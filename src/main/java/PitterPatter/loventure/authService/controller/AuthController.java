@@ -3,6 +3,7 @@ package PitterPatter.loventure.authService.controller;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,17 +16,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import PitterPatter.loventure.authService.constants.RedirectStatus;
+import PitterPatter.loventure.authService.dto.request.LoginRequest;
+import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.response.ErrorResponse;
-import PitterPatter.loventure.authService.dto.request.LoginRequest;
 import PitterPatter.loventure.authService.dto.response.LoginResponse;
-import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.security.JWTUtil;
 import PitterPatter.loventure.authService.service.AuthService;
+import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.UserService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,17 +45,37 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
     private final JWTUtil jwtUtil;
+    private final UserService userService;
+    private final CoupleService coupleService;
+
+    @Value("${spring.jwt.redirect.onboarding}")
+    private String onboardingRedirectUrl;
+
+    @Value("${spring.jwt.redirect.coupleroom}")
+    private String coupleroomRedirectUrl;
+
+    @Value("${spring.jwt.redirect.home}")
+    private String homeRedirectUrl;
     /**
-     * 토큰 갱신
+     * 토큰 갱신 (쿠키에서 refresh token 읽기)
      */
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@RequestParam String refreshToken) {
+    public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
         try {
-            AuthResponse response = authService.refreshToken(refreshToken);
-            if (response.isSuccess()) {
-                return ResponseEntity.ok(response);
+            // 쿠키에서 refresh token 추출
+            String refreshToken = authService.getRefreshTokenFromCookie(request);
+            if (refreshToken == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("리프레시 토큰이 없습니다", "REFRESH_TOKEN_NOT_FOUND"));
+            }
+
+            AuthResponse authResponse = authService.refreshToken(refreshToken);
+            if (authResponse.success()) {
+                // 새로운 refresh token을 쿠키에 저장
+                authService.setRefreshTokenCookie(response, authResponse.refreshToken());
+                return ResponseEntity.ok(authResponse);
             } else {
-                return ResponseEntity.badRequest().body(response);
+                return ResponseEntity.badRequest().body(authResponse);
             }
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
@@ -58,10 +85,35 @@ public class AuthController {
     }
 
     /**
-     * [리팩토링] 사용자 정보 조회
+     * 쿠키에서 refresh token 추출
+     */
+    private String getRefreshTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refresh_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Refresh token을 HttpOnly 쿠키에 저장
+     */
+    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie("refresh_token", refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
+        response.addCookie(cookie);
+    }
+
+    /**
+     * 사용자 정보 조회
      * @AuthenticationPrincipal을 사용하여 JWTFilter가 검증하고 SecurityContext에 저장한
      * 인증된 사용자 정보를 직접 주입받습니다.
-     * 컨트롤러에서 토큰을 직접 파싱하고 검증하는 중복 로직을 제거했습니다.
      */
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
@@ -79,15 +131,15 @@ public class AuthController {
                         .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
             }
 
-            AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
-                    .userId(user.getUserId())
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .providerType(user.getProviderType().name())
-                    .providerId(user.getProviderId())
-                    .status(user.getStatus().name())
-                    .isNewUser(false)
-                    .build();
+            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
+                    user.getUserId().toString(),
+                    user.getEmail(),
+                    user.getName(),
+                    user.getProviderType().name(),
+                    user.getProviderId(),
+                    user.getStatus().name(),
+                    false
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -103,27 +155,26 @@ public class AuthController {
     }
 
     /**
-     * [수정] 로그아웃
-     * 계정을 비활성화하는 대신, stateless JWT 방식에 맞는 로그아웃을 구현합니다.
+     * 로그아웃
      * 클라이언트는 이 API 호출 후 자체적으로 토큰을 삭제해야 합니다.
-     * (선택적 심화) 서버에서는 전달받은 토큰을 블랙리스트에 추가하여,
-     * 해당 토큰이 만료되기 전까지 재사용될 수 없도록 처리할 수 있습니다.
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization") String authorization) {
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization") String authorization,
+                                    HttpServletResponse response) {
         try {
             if (authorization != null && authorization.startsWith("Bearer ")) {
                 // String token = authorization.substring(7);
-                // (선택적 심화) 토큰 블랙리스트 처리 로직
-                // logoutTokenService.blacklistToken(token);
                 log.info("로그아웃 요청 처리 완료. 클라이언트는 토큰을 폐기해야 합니다.");
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요.");
+            // Refresh token 쿠키 삭제
+            authService.clearRefreshTokenCookie(response);
 
-            return ResponseEntity.ok(response);
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("success", true);
+            responseBody.put("message", "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요.");
+
+            return ResponseEntity.ok(responseBody);
 
         } catch (Exception e) {
             log.error("로그아웃 중 오류 발생: {}", e.getMessage(), e);
@@ -132,6 +183,7 @@ public class AuthController {
         }
     }
 
+
     /**
      * 계정 상태 확인
      */
@@ -139,11 +191,11 @@ public class AuthController {
     public ResponseEntity<?> checkAccountStatus(@RequestParam String email) {
         try {
             User user = userRepository.findByEmail(email);
-            
+
             if (user == null) {
                 return ResponseEntity.ok(Map.of(
-                    "exists", false,
-                    "message", "등록되지 않은 이메일입니다"
+                        "exists", false,
+                        "message", "등록되지 않은 이메일입니다"
                 ));
             }
 
@@ -164,67 +216,22 @@ public class AuthController {
 
     /**
      * OAuth2 로그인 (명세서: POST /api/auth/login/{provider})
+     * 주의: 실제 OAuth2 로그인은 Spring Security OAuth2를 통해 처리됩니다.
+     * 이 엔드포인트는 테스트용이거나 특별한 경우에만 사용됩니다.
+     *
+     * 실제 OAuth2 로그인 URL:
+     * - Google: /oauth2/authorization/google
+     * - Kakao: /oauth2/authorization/kakao
      */
     @PostMapping("/login/{provider}")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @PathVariable String provider,
             @RequestBody LoginRequest loginRequest) {
-        try {
-            // provider 유효성 검사
-            if (!provider.equals("google") && !provider.equals("kakao")) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("40007", "잘못된 " + provider + " 값입니다."));
-            }
 
-            // OAuth2 provider에서 사용자 정보 조회 (실제 구현에서는 provider API 호출)
-            // 여기서는 간단히 예시로 처리
-            // String providerAccessToken = loginRequest.getAccess_token();
-            
-            // 실제로는 provider API를 호출하여 사용자 정보를 가져와야 함
-            // 예시: Google/Kakao API 호출하여 사용자 정보 조회
-            
-            // 임시 사용자 정보 (실제로는 provider API에서 가져옴)
-            String email = "user@example.com";
-            String name = "홍길동";
-            String providerId = provider + "_" + System.currentTimeMillis();
-            
-            // 기존 사용자 조회 또는 신규 사용자 생성
-            User user = userRepository.findByProviderId(providerId);
-            boolean isNewUser = false;
-            
-            if (user == null) {
-                // 신규 사용자 생성
-                user = User.builder()
-                        .providerType(PitterPatter.loventure.authService.repository.ProviderType.valueOf(provider.toUpperCase()))
-                        .providerId(providerId)
-                        .email(email)
-                        .name(name)
-                        .status(PitterPatter.loventure.authService.repository.AccountStatus.ACTIVE)
-                        .build();
-                user = userRepository.save(user);
-                isNewUser = true;
-            }
-
-            // JWT 토큰 생성 (userID 포함)
-            String accessToken = jwtUtil.createJwtWithUserId(user.getProviderId(), user.getUserId(), 60 * 60 * 1000L);
-            String refreshToken = jwtUtil.createRefreshToken(user.getProviderId());
-
-            LoginResponse loginResponse = LoginResponse.builder()
-                    .user_id(user.getTsid().toString())
-                    .isNewUser(isNewUser)
-                    .email(user.getEmail())
-                    .name(user.getName())
-                    .JWT(accessToken)
-                    .refresh_token(refreshToken)
-                    .build();
-
-            return ResponseEntity.ok(ApiResponse.success(loginResponse));
-
-        } catch (Exception e) {
-            log.error("로그인 중 오류 발생: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")"));
-        }
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("40001",
+                        "OAuth2 로그인은 Spring Security OAuth2를 통해 처리됩니다. " +
+                                "다음 URL을 사용하세요: /oauth2/authorization/" + provider));
     }
 
     /**
@@ -234,8 +241,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@RequestBody SignupRequest signupRequest) {
         try {
             // 필수 입력값 검증
-            if (signupRequest.getEmail() == null || signupRequest.getName() == null || 
-                signupRequest.getProviderId() == null || signupRequest.getProviderType() == null) {
+            if (signupRequest.getEmail() == null || signupRequest.getName() == null ||
+                    signupRequest.getProviderId() == null || signupRequest.getProviderType() == null) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("40001", "필수 입력 코드가 누락되었습니다"));
             }
@@ -265,11 +272,11 @@ public class AuthController {
 
             User savedUser = userRepository.save(newUser);
 
-            SignupResponse signupResponse = SignupResponse.builder()
-                    .userId(savedUser.getTsid().toString())
-                    .createdAt(savedUser.getCreatedAt())
-                    .updatedAt(savedUser.getUpdatedAt())
-                    .build();
+            SignupResponse signupResponse = new SignupResponse(
+                    savedUser.getUserId().toString(),
+                    savedUser.getCreatedAt(),
+                    savedUser.getUpdatedAt()
+            );
 
             return ResponseEntity.ok(ApiResponse.success(signupResponse));
 
@@ -277,6 +284,70 @@ public class AuthController {
             log.error("회원가입 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")"));
+        }
+    }
+
+    /**
+     * 사용자 상태별 리다이렉트 URL 반환
+     * - 신규회원 또는 개인 온보딩 미완료: /onboarding
+     * - 개인 온보딩 완료, 커플 매칭 미완료: /coupleroom
+     * - 개인 온보딩 및 커플 매칭 모두 완료: /home
+     */
+    @GetMapping("/redirect")
+    public ResponseEntity<?> getUserRedirectUrl(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+            }
+
+            String providerId = userDetails.getUsername();
+            User user = userRepository.findByProviderId(providerId);
+
+            if (user == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
+            }
+
+            // 개인 온보딩 완료 여부 확인
+            boolean isOnboardingCompleted = userService.isOnboardingCompleted(user);
+            
+            // 커플 매칭 상태 확인
+            boolean isCoupled = coupleService.isUserCoupled(providerId);
+
+            String redirectUrl;
+            String status;
+
+            if (!isOnboardingCompleted) {
+                // 신규회원 또는 개인 온보딩 미완료
+                redirectUrl = onboardingRedirectUrl;
+                status = RedirectStatus.ONBOARDING_REQUIRED;
+            } else if (!isCoupled) {
+                // 개인 온보딩 완료, 커플 매칭 미완료
+                redirectUrl = coupleroomRedirectUrl;
+                status = RedirectStatus.COUPLE_MATCHING_REQUIRED;
+            } else {
+                // 개인 온보딩 및 커플 매칭 모두 완료
+                redirectUrl = homeRedirectUrl;
+                status = RedirectStatus.COMPLETED;
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("redirectUrl", redirectUrl);
+            response.put("status", status);
+            response.put("isOnboardingCompleted", isOnboardingCompleted);
+            response.put("isCoupled", isCoupled);
+
+            log.info("사용자 리다이렉트 URL 반환 - userId: {}, status: {}, redirectUrl: {}", 
+                    user.getUserId(), status, redirectUrl);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("사용자 리다이렉트 URL 조회 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ErrorResponse.of("사용자 리다이렉트 URL 조회 중 오류가 발생했습니다", "REDIRECT_URL_ERROR"));
         }
     }
 }
