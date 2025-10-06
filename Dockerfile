@@ -1,4 +1,4 @@
-# ---- Build stage: Gradle + JDK 21 (cache-friendly) ----
+# ---- Build stage: Gradle + JDK 17 (cache-friendly) ----
 FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /workspace
 
@@ -8,7 +8,7 @@ COPY gradlew ./
 COPY gradle/wrapper/gradle-wrapper.jar gradle/wrapper/
 COPY gradle/wrapper/gradle-wrapper.properties gradle/wrapper/
 
-COPY settings.gradle* build.gradle* build.gradle.kts* ./
+COPY settings.gradle* build.gradle* ./
 RUN chmod +x gradlew
 # 플러그인/의존성만 미리 내려받아 캐시 (소스 없을 때 실패해도 캐시엔 도움)
 RUN ./gradlew --no-daemon dependencies || true
@@ -19,7 +19,7 @@ COPY src ./src
 # 테스트는 컨테이너 빌드에서 생략(원하면 제거)
 RUN ./gradlew --no-daemon bootJar -x test
 
-# ---- Runtime stage: JRE 21 slim ----
+# ---- Runtime stage: JRE 17 slim ----
 FROM eclipse-temurin:17-jre-jammy AS runtime
 
 # 비루트 실행 권장
@@ -29,6 +29,8 @@ USER spring:spring
 WORKDIR /app
 # 빌드 산출물 복사 (필요시 파일명 고정 가능)
 COPY --from=build /workspace/build/libs/*.jar /app/app.jar
+
+LABEL authors="pitterpetter"
 
 ENV SERVER_PORT=8081
 EXPOSE 8081
