@@ -90,19 +90,19 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String requestURI = request.getRequestURI();
         log.info("OAuth2 콜백 URI: {}", requestURI);
 
-        if (requestURI.equals("/api/login/oauth2/code/google") || requestURI.contains("/api/login/oauth2/code/google")) {
+        if (requestURI.equals("/login/oauth2/code/google") || requestURI.contains("/login/oauth2/code/google")) {
             log.info("Google OAuth2 콜백 감지");
             return "google";
-        } else if (requestURI.equals("/api/login/oauth2/code/kakao") || requestURI.contains("/api/login/oauth2/code/kakao")) {
+        } else if (requestURI.equals("/login/oauth2/code/kakao") || requestURI.contains("/login/oauth2/code/kakao")) {
             log.info("Kakao OAuth2 콜백 감지");
             return "kakao";
         }
         
         // OAuth2 인증 시작 URL에서 provider 정보 추출
-        if (requestURI.contains("/api/oauth2/authorization/google")) {
+        if (requestURI.contains("/oauth2/authorization/google")) {
             log.info("Google OAuth2 인증 시작 감지");
             return "google";
-        } else if (requestURI.contains("/api/oauth2/authorization/kakao")) {
+        } else if (requestURI.contains("/oauth2/authorization/kakao")) {
             log.info("Kakao OAuth2 인증 시작 감지");
             return "kakao";
         }

@@ -73,11 +73,7 @@ public class SecurityConfig {
                         .successHandler(oAuth2LoginSuccessHandler) // 로그인 성공 핸들러로 이동 -> 유저를 DB에 저장하거나 조회 후 실행, JWT 발급
                         .failureHandler(oAuth2LoginFailureHandler) // 로그인 실패 핸들러로 이동
                         .userInfoEndpoint(userInfoEndpointConfig -> userInfoEndpointConfig
-                                .userService(customOAuth2UserService)) // 실제 유저 정보 처리 service
-                        .authorizationEndpoint(authorizationEndpointConfig -> authorizationEndpointConfig
-                                .baseUri("/api/oauth2/authorization")) // OAuth2 인증 시작 URL 설정
-                        .redirectionEndpoint(redirectionEndpointConfig -> redirectionEndpointConfig
-                                .baseUri("/api/login/oauth2/code"))); // OAuth2 콜백 URL 설정
+                                .userService(customOAuth2UserService))); // 실제 유저 정보 처리 service
 
         // JWT Filter -> Spring Security의 필터 체인에 추가
         http
@@ -86,10 +82,10 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
-                                "/api/auth/signup", "/api/auth/login/**", "/api/auth/oauth2/**", "/api/oauth2/authorization/**", "/api/login/oauth2/code/**", "/success",
+                                "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**", "/success",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
-                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
-                        .requestMatchers("/api/users/recommendation-data/**").permitAll() // AI 서비스에서 호출하는 API 허용
+                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
+                        .requestMatchers("/api/users/recommendation-data/**").permitAll()
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();
