@@ -235,6 +235,32 @@ public class AuthController {
     }
 
     /**
+     * OAuth2 로그인 성공 페이지 (테스트용)
+     */
+    @GetMapping("/success")
+    public ResponseEntity<String> loginSuccess(@RequestParam(required = false) String type, 
+                                             @RequestParam(required = false) String access_token) {
+        String message = "OAuth2 로그인 성공!";
+        if (type != null) {
+            message += " 타입: " + type;
+        }
+        if (access_token != null) {
+            message += " 토큰: " + access_token.substring(0, Math.min(20, access_token.length())) + "...";
+        }
+        
+        String html = "<!DOCTYPE html>" +
+                "<html><head><title>로그인 성공</title></head>" +
+                "<body><h1>" + message + "</h1>" +
+                "<p>OAuth2 인증이 성공적으로 완료되었습니다.</p>" +
+                "<p>실제 프론트엔드에서는 이 페이지 대신 적절한 페이지로 리다이렉트됩니다.</p>" +
+                "</body></html>";
+        
+        return ResponseEntity.ok()
+                .header("Content-Type", "text/html; charset=UTF-8")
+                .body(html);
+    }
+
+    /**
      * 회원가입 (명세서: POST /api/auth/signup)
      */
     @PostMapping("/signup")
