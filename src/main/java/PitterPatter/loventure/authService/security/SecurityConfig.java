@@ -82,10 +82,10 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
-                                "/api/auth/signup", "/api/auth/login/**", "/api/auth/oauth2/**",
+                                "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**", "/success",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
-                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() // 누구나 접근 가능한 경로
-                        .requestMatchers("/api/users/recommendation-data/**").permitAll() // AI 서비스에서 호출하는 API 허용
+                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
+                        .requestMatchers("/api/users/recommendation-data/**").permitAll()
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();
