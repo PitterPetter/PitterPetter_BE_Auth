@@ -125,4 +125,70 @@ public class UserService {
         user.setStatus(PitterPatter.loventure.authService.repository.AccountStatus.DEACTIVATED);
         userRepository.save(user);
     }
+    
+    /**
+     * 사용자 프로필 수정
+     */
+    @Transactional
+    public User updateProfile(String providerId, PitterPatter.loventure.authService.dto.request.ProfileUpdateRequest request) {
+        User user = validateUserByProviderId(providerId);
+        
+        // null이 아닌 값만 업데이트
+        if (request.name() != null) {
+            user.updateUserInfo(user.getEmail(), request.name());
+        }
+        if (request.birthDate() != null) {
+            user.setBirthDate(request.birthDate());
+        }
+        if (request.gender() != null) {
+            user.setGender(request.gender());
+        }
+        if (request.alcoholPreference() != null) {
+            user.setAlcoholPreference(request.alcoholPreference());
+        }
+        if (request.activeBound() != null) {
+            user.setActiveBound(request.activeBound());
+        }
+        if (request.favoriteFoodCategories() != null) {
+            user.setFavoriteFoodCategories(request.favoriteFoodCategories());
+        }
+        if (request.dateCostPreference() != null) {
+            user.setDateCostPreference(request.dateCostPreference());
+        }
+        if (request.preferredAtmosphere() != null) {
+            user.setPreferredAtmosphere(request.preferredAtmosphere());
+        }
+        
+        return userRepository.save(user);
+    }
+    
+    /**
+     * 이메일로 사용자 조회
+     */
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+    
+    /**
+     * ProviderId로 사용자 조회 (null 허용)
+     */
+    public User getUserByProviderId(String providerId) {
+        return userRepository.findByProviderId(providerId);
+    }
+    
+    /**
+     * 신규 사용자 생성
+     */
+    @Transactional
+    public User createUser(PitterPatter.loventure.authService.dto.request.SignupRequest signupRequest) {
+        User newUser = User.builder()
+                .providerType(signupRequest.getProviderType())
+                .providerId(signupRequest.getProviderId())
+                .email(signupRequest.getEmail())
+                .name(signupRequest.getName())
+                .status(PitterPatter.loventure.authService.repository.AccountStatus.ACTIVE)
+                .build();
+        
+        return userRepository.save(newUser);
+    }
 }
