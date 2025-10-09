@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component;
 
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.response.DeleteUserResponse;
-import PitterPatter.loventure.authService.dto.response.LoginResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
 import PitterPatter.loventure.authService.repository.User;
 
@@ -29,19 +28,6 @@ public class UserMapper {
         );
     }
     
-    /**
-     * User를 LoginResponse로 변환
-     */
-    public LoginResponse toLoginResponse(User user, String jwt, String refreshToken, boolean isNewUser) {
-        return new LoginResponse(
-            user.getUserId().toString(),
-            isNewUser,
-            user.getEmail(),
-            user.getName(),
-            jwt,
-            refreshToken
-        );
-    }
     
     /**
      * User를 SignupResponse로 변환

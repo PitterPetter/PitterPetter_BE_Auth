@@ -158,7 +158,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         
         if (authResponse.user().isNewUser()) {
             // 신규 사용자: 온보딩 페이지로 리다이렉트
-            url.append(REDIRECT_URI_BASE).append("/onboarding?");
+            url.append(REDIRECT_URI_BASE).append("/onboarding/me?");
             url.append("access_token=").append(authResponse.accessToken());
             log.info("신규 사용자 온보딩 페이지로 리다이렉트");
         } else {

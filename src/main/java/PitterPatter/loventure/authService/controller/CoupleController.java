@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
-import PitterPatter.loventure.authService.dto.request.CoupleOnboardingRequest;
+import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
-@RequestMapping("/api/couples")
+@RequestMapping("/api/home/coupleroom")
 @RequiredArgsConstructor
 @Slf4j
 public class CoupleController {
@@ -31,15 +31,16 @@ public class CoupleController {
     private final UserService userService;
 
     @PostMapping("/rooms")
-    // 이 API는 현재 인증된 OAuth2의 JWT에서 받아온 정보로 coupleRoom을 생성하는 API입니다.
-    public ResponseEntity<ApiResponse<CreateCoupleRoomResponse>> createCoupleRoom(
-            @AuthenticationPrincipal UserDetails userDetails) {
+    // 커플룸 생성과 온보딩을 함께 처리하는 통합 API
+    public ResponseEntity<ApiResponse<CreateCoupleRoomResponse>> createCoupleRoomWithOnboarding(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid CreateCoupleRoomWithOnboardingRequest request) {
         
         try {
             // JWT에서 providerId 추출
             String providerId = userService.extractProviderId(userDetails);
-            // prividerId를 이용해서 CoupleRoom 생성
-            ApiResponse<CreateCoupleRoomResponse> response = coupleService.createCoupleRoom(providerId);
+            // 커플룸 생성과 온보딩을 함께 처리
+            ApiResponse<CreateCoupleRoomResponse> response = coupleService.createCoupleRoomWithOnboarding(providerId, request);
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -56,12 +57,10 @@ public class CoupleController {
             @RequestBody @Valid CoupleMatchRequest request) {
         
         try {
-            // JWT에서 userId 추출
-            String userId = userService.extractUserId(userDetails);
-            // 새로운 request 객체 생성 (record는 불변)
-            CoupleMatchRequest newRequest = new CoupleMatchRequest(userId, request.inviteCode());
+            // JWT에서 providerId 추출
+            String providerId = userService.extractProviderId(userDetails);
             
-            ApiResponse<CoupleMatchResponse> response = coupleService.matchCouple(newRequest);
+            ApiResponse<CoupleMatchResponse> response = coupleService.matchCouple(providerId, request.inviteCode());
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -87,24 +86,6 @@ public class CoupleController {
         }
     }
     
-    /**
-     * 커플 온보딩 생성/수정
-     */
-    @PostMapping("/{coupleId}/onboarding")
-    public ResponseEntity<ApiResponse<Void>> createOnboarding(
-            @PathVariable String coupleId,
-            @RequestBody @Valid CoupleOnboardingRequest request) {
-        
-        try {
-            ApiResponse<Void> response = coupleService.createOrUpdateOnboarding(coupleId, request);
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("커플 온보딩 API 오류: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다."));
-        }
-    }
     
 
 }

@@ -2,14 +2,15 @@ package PitterPatter.loventure.authService.controller;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,22 +18,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
-import PitterPatter.loventure.authService.dto.request.LoginRequest;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.response.ErrorResponse;
-import PitterPatter.loventure.authService.dto.response.LoginResponse;
+import PitterPatter.loventure.authService.dto.response.MyPageResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
+import PitterPatter.loventure.authService.exception.BusinessException;
+import PitterPatter.loventure.authService.mapper.MyPageMapper;
+import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
-import PitterPatter.loventure.authService.repository.UserRepository;
-import PitterPatter.loventure.authService.security.JWTUtil;
 import PitterPatter.loventure.authService.service.AuthService;
 import PitterPatter.loventure.authService.service.CoupleService;
 import PitterPatter.loventure.authService.service.UserService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,10 +44,9 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserRepository userRepository;
-    private final JWTUtil jwtUtil;
     private final UserService userService;
     private final CoupleService coupleService;
+    private final MyPageMapper myPageMapper;
 
     @Value("${spring.jwt.redirect.onboarding}")
     private String onboardingRedirectUrl;
@@ -84,39 +84,14 @@ public class AuthController {
         }
     }
 
-    /**
-     * 쿠키에서 refresh token 추출
-     */
-    private String getRefreshTokenFromCookie(HttpServletRequest request) {
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("refresh_token".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-        return null;
-    }
 
     /**
-     * Refresh token을 HttpOnly 쿠키에 저장
-     */
-    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-        Cookie cookie = new Cookie("refresh_token", refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
-        response.addCookie(cookie);
-    }
-
-    /**
-     * 사용자 정보 조회
+     * 사용자 프로필 상세 조회 (마이페이지용)
      * @AuthenticationPrincipal을 사용하여 JWTFilter가 검증하고 SecurityContext에 저장한
      * 인증된 사용자 정보를 직접 주입받습니다.
      */
-    @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+    @GetMapping("/mypage")
+    public ResponseEntity<?> getMyPage(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
@@ -124,33 +99,71 @@ public class AuthController {
             }
 
             String providerId = userDetails.getUsername();
-            User user = userRepository.findByProviderId(providerId);
+            User user = userService.validateUserByProviderId(providerId);
 
-            if (user == null) {
-                return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
+            // 커플 정보 조회
+            Optional<CoupleRoom> coupleRoomOpt = coupleService.getCoupleInfo(providerId);
+            User partner = null;
+            
+            if (coupleRoomOpt.isPresent()) {
+                CoupleRoom coupleRoom = coupleRoomOpt.get();
+                // 파트너 정보 조회 (파트너가 존재하는 경우에만)
+                String partnerProviderId = coupleRoom.getCreatorUserId().equals(providerId) 
+                    ? coupleRoom.getPartnerUserId() 
+                    : coupleRoom.getCreatorUserId();
+                
+                if (partnerProviderId != null) {
+                    try {
+                        partner = userService.validateUserByProviderId(partnerProviderId);
+                    } catch (BusinessException e) {
+                        log.warn("파트너 사용자 정보를 찾을 수 없습니다: {}", partnerProviderId);
+                        // 파트너 정보가 없어도 커플룸 정보는 표시
+                    }
+                }
             }
 
-            AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
-                    user.getUserId().toString(),
-                    user.getEmail(),
-                    user.getName(),
-                    user.getProviderType().name(),
-                    user.getProviderId(),
-                    user.getStatus().name(),
-                    false
-            );
+            // 매퍼를 사용하여 MyPageResponse 생성
+            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("user", userInfo);
+            response.put("data", myPageResponse);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("사용자 정보 조회 중 오류 발생: {}", e.getMessage(), e);
+            log.error("마이페이지 정보 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("사용자 정보 조회 중 오류가 발생했습니다", "USER_INFO_ERROR"));
+                    .body(ErrorResponse.of("마이페이지 정보 조회 중 오류가 발생했습니다", "MYPAGE_ERROR"));
+        }
+    }
+
+    /**
+     * 사용자 프로필 수정
+     */
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@AuthenticationPrincipal UserDetails userDetails,
+                                         @RequestBody @Valid PitterPatter.loventure.authService.dto.request.ProfileUpdateRequest request) {
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.badRequest()
+                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+            }
+
+            String providerId = userDetails.getUsername();
+            User updatedUser = userService.updateProfile(providerId, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "프로필이 성공적으로 수정되었습니다");
+            response.put("userId", updatedUser.getUserId().toString());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("프로필 수정 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ErrorResponse.of("프로필 수정 중 오류가 발생했습니다", "PROFILE_UPDATE_ERROR"));
         }
     }
 
@@ -190,7 +203,7 @@ public class AuthController {
     @GetMapping("/status")
     public ResponseEntity<?> checkAccountStatus(@RequestParam String email) {
         try {
-            User user = userRepository.findByEmail(email);
+            User user = userService.getUserByEmail(email);
 
             if (user == null) {
                 return ResponseEntity.ok(Map.of(
@@ -214,51 +227,7 @@ public class AuthController {
         }
     }
 
-    /**
-     * OAuth2 로그인 (명세서: POST /api/auth/login/{provider})
-     * 주의: 실제 OAuth2 로그인은 Spring Security OAuth2를 통해 처리됩니다.
-     * 이 엔드포인트는 테스트용이거나 특별한 경우에만 사용됩니다.
-     *
-     * 실제 OAuth2 로그인 URL:
-     * - Google: /oauth2/authorization/google
-     * - Kakao: /oauth2/authorization/kakao
-     */
-    @PostMapping("/login/{provider}")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @PathVariable String provider,
-            @RequestBody LoginRequest loginRequest) {
 
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error("40001",
-                        "OAuth2 로그인은 Spring Security OAuth2를 통해 처리됩니다. " +
-                                "다음 URL을 사용하세요: /oauth2/authorization/" + provider));
-    }
-
-    /**
-     * OAuth2 로그인 성공 페이지 (테스트용)
-     */
-    @GetMapping("/success")
-    public ResponseEntity<String> loginSuccess(@RequestParam(required = false) String type, 
-                                             @RequestParam(required = false) String access_token) {
-        String message = "OAuth2 로그인 성공!";
-        if (type != null) {
-            message += " 타입: " + type;
-        }
-        if (access_token != null) {
-            message += " 토큰: " + access_token.substring(0, Math.min(20, access_token.length())) + "...";
-        }
-        
-        String html = "<!DOCTYPE html>" +
-                "<html><head><title>로그인 성공</title></head>" +
-                "<body><h1>" + message + "</h1>" +
-                "<p>OAuth2 인증이 성공적으로 완료되었습니다.</p>" +
-                "<p>실제 프론트엔드에서는 이 페이지 대신 적절한 페이지로 리다이렉트됩니다.</p>" +
-                "</body></html>";
-        
-        return ResponseEntity.ok()
-                .header("Content-Type", "text/html; charset=UTF-8")
-                .body(html);
-    }
 
     /**
      * 회원가입 (명세서: POST /api/auth/signup)
@@ -274,29 +243,21 @@ public class AuthController {
             }
 
             // 이메일 중복 체크
-            User existingUser = userRepository.findByEmail(signupRequest.getEmail());
+            User existingUser = userService.getUserByEmail(signupRequest.getEmail());
             if (existingUser != null) {
                 return ResponseEntity.status(409)
                         .body(ApiResponse.error("40901", "이미 존재하는 회원입니다."));
             }
 
             // providerId 중복 체크
-            User existingProviderUser = userRepository.findByProviderId(signupRequest.getProviderId());
+            User existingProviderUser = userService.getUserByProviderId(signupRequest.getProviderId());
             if (existingProviderUser != null) {
                 return ResponseEntity.status(409)
                         .body(ApiResponse.error("40901", "이미 존재하는 회원입니다."));
             }
 
             // 신규 사용자 생성
-            User newUser = User.builder()
-                    .providerType(signupRequest.getProviderType())
-                    .providerId(signupRequest.getProviderId())
-                    .email(signupRequest.getEmail())
-                    .name(signupRequest.getName())
-                    .status(PitterPatter.loventure.authService.repository.AccountStatus.ACTIVE)
-                    .build();
-
-            User savedUser = userRepository.save(newUser);
+            User savedUser = userService.createUser(signupRequest);
 
             SignupResponse signupResponse = new SignupResponse(
                     savedUser.getUserId().toString(),
@@ -313,6 +274,7 @@ public class AuthController {
         }
     }
 
+
     /**
      * 사용자 상태별 리다이렉트 URL 반환
      * - 신규회원 또는 개인 온보딩 미완료: /onboarding
@@ -328,12 +290,7 @@ public class AuthController {
             }
 
             String providerId = userDetails.getUsername();
-            User user = userRepository.findByProviderId(providerId);
-
-            if (user == null) {
-                return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("사용자를 찾을 수 없습니다", "USER_NOT_FOUND"));
-            }
+            User user = userService.validateUserByProviderId(providerId);
 
             // 개인 온보딩 완료 여부 확인
             boolean isOnboardingCompleted = userService.isOnboardingCompleted(user);
