@@ -8,8 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.github.f4b6a3.tsid.TsidCreator;
 
-import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
-import PitterPatter.loventure.authService.dto.request.CoupleOnboardingRequest;
+import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
@@ -74,12 +73,9 @@ public class CoupleService {
      * 커플 매칭
      */
     @Transactional
-    public ApiResponse<CoupleMatchResponse> matchCouple(CoupleMatchRequest request) {
-        String userId = request.userId();
-        String inviteCode = request.inviteCode();
-
+    public ApiResponse<CoupleMatchResponse> matchCouple(String providerId, String inviteCode) {
         try {
-            User user = userService.validateUserByUserId(userId);
+            User user = userService.validateUserByProviderId(providerId);
 
             CoupleRoom coupleRoom = validateAndGetCoupleRoom(inviteCode, user.getProviderId());
             if (coupleRoom == null) {
@@ -135,7 +131,7 @@ public class CoupleService {
     }
 
     /**
-     * 커플 매칭 취소
+     * 커플 매칭 취소 (PENDING 상태로 되돌림)
      */
     @Transactional
     public ApiResponse<Void> cancelCouple(String coupleId) {
@@ -145,36 +141,18 @@ public class CoupleService {
         }
 
         CoupleRoom coupleRoom = coupleRoomOpt.get();
-        if (coupleRoom.getStatus() == CoupleRoom.CoupleStatus.DEACTIVED) {
-            return ApiResponse.error(ErrorCode.ALREADY_CANCELLED.getCode(), "커플 상태가 이미 해제되었습니다.");
+        if (coupleRoom.getStatus() == CoupleRoom.CoupleStatus.PENDING) {
+            return ApiResponse.error(ErrorCode.ALREADY_CANCELLED.getCode(), "이미 매칭 대기 상태입니다.");
         }
 
-        coupleRoom.setStatus(CoupleRoom.CoupleStatus.DEACTIVED);
+        // 매칭 취소 시 PENDING 상태로 되돌리고 파트너 정보 제거
+        coupleRoom.setStatus(CoupleRoom.CoupleStatus.PENDING);
+        coupleRoom.setPartnerUserId(null);
         coupleRoomRepository.save(coupleRoom);
-        log.info("커플 매칭 취소 완료 - coupleId: {}", coupleId);
-        return ApiResponse.success(null, "커플 매칭이 취소되었습니다.");
+        log.info("커플 매칭 취소 완료 - coupleId: {}, 상태: PENDING으로 변경", coupleId);
+        return ApiResponse.success(null, "커플 매칭이 취소되었습니다. 다시 매칭할 수 있습니다.");
     }
 
-    /**
-     * 커플 온보딩 생성/수정
-     */
-    @Transactional
-    public ApiResponse<Void> createOrUpdateOnboarding(String coupleId, CoupleOnboardingRequest request) {
-        Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCoupleId(coupleId);
-        if (coupleRoomOpt.isEmpty()) {
-            return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "존재하지 않는 커플입니다.");
-        }
-
-        // CoupleRoom에 coupleHomeName과 datingStartDate 저장
-        CoupleRoom coupleRoom = coupleRoomOpt.get();
-        coupleRoom.setCoupleHomeName(request.coupleHomeName());
-        coupleRoom.setDatingStartDate(request.datingStartDate());
-        coupleRoomRepository.save(coupleRoom);
-
-        log.info("커플 온보딩 저장 완료 - coupleId: {}, coupleHomeName: {}, datingStartDate: {}", 
-                coupleId, request.coupleHomeName(), request.datingStartDate());
-        return ApiResponse.success(null, "커플 온보딩 데이터 저장 완료");
-    }
 
     // 매칭을 위한 inviteCode 생성
     private String generateInviteCode() {
@@ -187,6 +165,40 @@ public class CoupleService {
             }
         } while (coupleRoomRepository.existsByInviteCode(code.toString()));
         return code.toString();
+    }
+
+    /**
+     * 데이트 시작일 문자열을 LocalDateTime으로 파싱
+     * 지원 형식:
+     * - yyyy.MM.dd (예: 2025.10.09)
+     * - yyyy-MM-dd (예: 2025-10-09)
+     * - yyyy-MM-ddTHH:mm:ss (예: 2025-10-09T00:00:00)
+     */
+    private java.time.LocalDateTime parseDatingStartDate(String dateString) {
+        if (dateString == null || dateString.trim().isEmpty()) {
+            throw new IllegalArgumentException("데이트 시작일이 비어있습니다.");
+        }
+        
+        String dateStr = dateString.trim();
+        
+        try {
+            // 1. yyyy.MM.dd 형식 시도
+            if (dateStr.matches("\\d{4}\\.\\d{2}\\.\\d{2}")) {
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd");
+                return java.time.LocalDate.parse(dateStr, formatter).atStartOfDay();
+            }
+            // 2. yyyy-MM-dd 형식 시도
+            else if (dateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return java.time.LocalDate.parse(dateStr).atStartOfDay();
+            }
+            // 3. ISO 형식 시도
+            else {
+                return java.time.LocalDateTime.parse(dateStr);
+            }
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                "날짜 형식이 올바르지 않습니다. 지원 형식: yyyy.MM.dd, yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss", e);
+        }
     }
 
     private String generateTSID() {
@@ -210,4 +222,54 @@ public class CoupleService {
     public boolean isUserCoupled(String providerId) {
         return isUserAlreadyCoupled(providerId);
     }
+    
+    /**
+     * 사용자의 커플 정보 조회
+     */
+    public Optional<CoupleRoom> getCoupleInfo(String providerId) {
+        return coupleRoomRepository.findByCreatorUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE)
+                .or(() -> coupleRoomRepository.findByPartnerUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE));
+    }
+    
+    /**
+     * 커플룸 생성과 온보딩을 함께 처리하는 통합 메서드
+     */
+    @Transactional
+    public ApiResponse<CreateCoupleRoomResponse> createCoupleRoomWithOnboarding(String providerId, CreateCoupleRoomWithOnboardingRequest request) {
+        try {
+            User user = userService.validateUserByProviderId(providerId);
+            
+            // 사용자가 이미 커플 상태인지 확인
+            if (isUserAlreadyCoupled(user.getProviderId())) {
+                throw new BusinessException(ErrorCode.ALREADY_COUPLED, "이미 커플 상태입니다.");
+            }
+
+            String inviteCode = generateInviteCode();
+            String coupleId = TsidCreator.getTsid().toString();
+
+            // 커플룸 생성 (PENDING 상태로 생성 - 매칭 대기)
+            CoupleRoom coupleRoom = CoupleRoom.builder()
+                    .coupleId(coupleId)
+                    .inviteCode(inviteCode)
+                    .creatorUserId(providerId)
+                    .coupleHomeName(request.coupleHomeName())
+                    .datingStartDate(parseDatingStartDate(request.datingStartDate()))
+                    .status(CoupleRoom.CoupleStatus.PENDING)
+                    .build();
+            coupleRoomRepository.save(coupleRoom);
+
+            CreateCoupleRoomResponse response = coupleMapper.toCreateCoupleRoomResponse(inviteCode);
+
+            log.info("커플룸 생성 완료 - coupleId: {}, inviteCode: {}, creatorUserId: {}, coupleHomeName: {}, datingStartDate: {}", 
+                    coupleId, inviteCode, providerId, request.coupleHomeName(), request.datingStartDate());
+            return ApiResponse.success(response);
+        
+        } catch (BusinessException e) {
+            return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
+        } catch (Exception e) {
+            log.error("커플룸 생성 및 온보딩 중 오류 발생: {}", e.getMessage(), e);
+            return ApiResponse.error("50001", "커플룸 생성 중 오류가 발생했습니다.");
+        }
+    }
+    
 }

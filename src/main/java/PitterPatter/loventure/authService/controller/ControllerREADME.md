@@ -38,12 +38,12 @@ CoupleController.java (운영용 컨트롤러) 💖
 
 주요 API 엔드포인트
 
-POST /api/couples/rooms: 새로운 커플룸을 생성합니다. 요청자의 userId를 JWT에서 추출하여 사용합니다.
+POST /api/home/coupleroom/rooms: 새로운 커플룸을 생성합니다. 커플홈 이름과 데이트 시작일을 받아 커플룸을 생성하고, 응답으로 초대 코드를 반환합니다.
 
-POST /api/couples/match: 커플 매칭을 처리합니다. 요청자의 userId를 JWT에서 추출하여 사용합니다.
+POST /api/home/coupleroom/match: 커플 매칭을 처리합니다. 요청자의 userId를 JWT에서 추출하여 사용합니다.
 
-DELETE /api/couples/{coupleId}: 특정 coupleId에 해당하는 커플 매칭을 취소합니다.
+DELETE /api/home/coupleroom/{coupleId}: 특정 coupleId에 해당하는 커플 매칭을 취소합니다.
 
-POST /api/couples/{coupleId}/onboarding: 커플 온보딩 정보를 생성하거나 수정합니다.
+POST /api/home/coupleroom/{coupleId}/onboarding: [DEPRECATED] 커플 온보딩 정보를 생성하거나 수정합니다. 이 API는 더 이상 사용되지 않으며, 대신 POST /api/home/coupleroom/rooms API를 사용하세요.
 
-PATCH /api/couples/{coupleId}: 커플 정보를 수정합니다.
+PATCH /api/home/coupleroom/{coupleId}: 커플 정보를 수정합니다.

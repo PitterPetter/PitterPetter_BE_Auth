@@ -26,13 +26,16 @@ public class OAuth2LoginFailureHandler extends SimpleUrlAuthenticationFailureHan
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException authenticationException) throws ServletException, IOException {
-        log.error("OAuth2 로그인 실패: {}", authenticationException.getMessage(), authenticationException);
-
         String errorMessage = getErrorMessage(authenticationException);
-        String encodedErrorMessage = URLEncoder.encode(errorMessage, StandardCharsets.UTF_8.toString());
-        String redirectUrl = REDIRECT_URI_BASE + "/login-failure?error=" + encodedErrorMessage;
         
-        log.info("로그인 실패로 리다이렉트: {}", redirectUrl);
+        log.error("OAuth2 로그인 실패: {}", errorMessage, authenticationException);
+        log.error("로그인 실패 상세 정보 - 요청 URI: {}, 오류 타입: {}", 
+                 request.getRequestURI(), authenticationException.getClass().getSimpleName());
+
+        // 프론트엔드 홈페이지로 리다이렉트 (로그인 실패 페이지가 없으므로)
+        String redirectUrl = REDIRECT_URI_BASE + "/home?error=" + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8.toString());
+        
+        log.info("로그인 실패로 홈페이지 리다이렉트: {}", redirectUrl);
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
     

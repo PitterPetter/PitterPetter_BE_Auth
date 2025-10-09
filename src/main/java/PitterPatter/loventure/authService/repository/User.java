@@ -57,9 +57,9 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
-    private Integer alcoholPreference; //0~100 사이의 값으로 설정해서 슬라이더로 시각화 예정
+    private Integer alcoholPreference; //1~5
 
-    private Integer activeBound; //0~100 사이의 값으로 설정해서 슬라이더로 시각화 예정
+    private Integer activeBound; //1~5
 
     @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
@@ -112,6 +112,35 @@ public class User {
         this.activeBound = activeBound;
         this.favoriteFoodCategories = favoriteFoodCategories;
         this.dateCostPreference = dateCostPreference;
+        this.preferredAtmosphere = preferredAtmosphere;
+    }
+    
+    // 프로필 수정을 위한 setter 메서드들
+    public void setBirthDate(LocalDateTime birthDate) {
+        this.birthDate = birthDate;
+    }
+    
+    public void setGender(Gender gender) {
+        this.gender = gender;
+    }
+    
+    public void setAlcoholPreference(Integer alcoholPreference) {
+        this.alcoholPreference = alcoholPreference;
+    }
+    
+    public void setActiveBound(Integer activeBound) {
+        this.activeBound = activeBound;
+    }
+    
+    public void setFavoriteFoodCategories(List<FavoriteFoodCategories> favoriteFoodCategories) {
+        this.favoriteFoodCategories = favoriteFoodCategories;
+    }
+    
+    public void setDateCostPreference(DateCostPreference dateCostPreference) {
+        this.dateCostPreference = dateCostPreference;
+    }
+    
+    public void setPreferredAtmosphere(String preferredAtmosphere) {
         this.preferredAtmosphere = preferredAtmosphere;
     }
 }
