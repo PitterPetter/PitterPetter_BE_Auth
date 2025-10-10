@@ -244,8 +244,9 @@ public class AuthService {
     public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         Cookie cookie = new Cookie("refresh_token", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(false); // 도메인 간 쿠키 공유를 위해 false로 설정
         cookie.setPath("/");
+        cookie.setDomain(".loventure.us"); // 도메인 설정으로 하위 도메인 간 쿠키 공유
         cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
         response.addCookie(cookie);
     }
@@ -256,8 +257,9 @@ public class AuthService {
     public void clearRefreshTokenCookie(HttpServletResponse response) {
         Cookie cookie = new Cookie("refresh_token", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(false); // 도메인 간 쿠키 공유를 위해 false로 설정
         cookie.setPath("/");
+        cookie.setDomain(".loventure.us"); // 도메인 설정으로 하위 도메인 간 쿠키 공유
         cookie.setMaxAge(0); // 즉시 삭제
         response.addCookie(cookie);
         log.info("Refresh token 쿠키 삭제 완료");

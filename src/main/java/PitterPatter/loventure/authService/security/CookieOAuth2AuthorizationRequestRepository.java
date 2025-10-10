@@ -24,7 +24,7 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
     
     private static final String OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request";
     private static final String REDIRECT_URI_PARAM_COOKIE_NAME = "redirect_uri";
-    private static final int COOKIE_EXPIRE_SECONDS = 180; // 3분
+    private static final int COOKIE_EXPIRE_SECONDS = 600; // 10분
     
     @Override
     public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {
@@ -105,7 +105,8 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
         cookie.setPath("/");
         cookie.setHttpOnly(true);
         cookie.setMaxAge(maxAge);
-        cookie.setSecure(true); // HTTPS 환경에서는 true로 설정
+        // HTTPS 환경에서는 true로 설정하되, 개발 환경에서는 false
+        cookie.setSecure(false); // 배포 환경에서도 일단 false로 설정하여 테스트
         response.addCookie(cookie);
         log.debug("쿠키 추가: {} (maxAge: {})", name, maxAge);
     }

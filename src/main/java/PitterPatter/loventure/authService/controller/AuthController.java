@@ -62,19 +62,28 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
         try {
+            log.info("Refresh token 요청 시작");
+            
             // 쿠키에서 refresh token 추출
             String refreshToken = authService.getRefreshTokenFromCookie(request);
+            log.info("쿠키에서 추출한 refresh token: {}", refreshToken != null ? "존재" : "없음");
+            
             if (refreshToken == null) {
+                log.warn("리프레시 토큰이 없습니다");
                 return ResponseEntity.badRequest()
                         .body(ErrorResponse.of("리프레시 토큰이 없습니다", "REFRESH_TOKEN_NOT_FOUND"));
             }
 
             AuthResponse authResponse = authService.refreshToken(refreshToken);
+            log.info("토큰 갱신 결과: {}", authResponse.success() ? "성공" : "실패");
+            
             if (authResponse.success()) {
                 // 새로운 refresh token을 쿠키에 저장
                 authService.setRefreshTokenCookie(response, authResponse.refreshToken());
+                log.info("새로운 refresh token 쿠키 저장 완료");
                 return ResponseEntity.ok(authResponse);
             } else {
+                log.warn("토큰 갱신 실패: {}", authResponse.message());
                 return ResponseEntity.badRequest().body(authResponse);
             }
         } catch (Exception e) {
