@@ -83,7 +83,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
                                 "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**",
-                                "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
+                                "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/docs/swagger-ui.html",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
