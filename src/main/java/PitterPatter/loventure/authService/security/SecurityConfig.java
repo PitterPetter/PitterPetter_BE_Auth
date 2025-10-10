@@ -91,7 +91,6 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
-                        .requestMatchers("/api/onboarding/**").permitAll() // 개발용: 온보딩 API 임시 허용
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();

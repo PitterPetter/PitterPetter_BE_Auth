@@ -1,4 +1,4 @@
-package PitterPatter.loventure.authService.service; // 서비스 패키지로 경로를 잡아주세요.
+package PitterPatter.loventure.authService.service;
 
 import PitterPatter.loventure.authService.dto.GoogleUserInfo;
 import PitterPatter.loventure.authService.dto.KakaoUserInfo;
@@ -17,8 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
-import java.util.Map;
-
 import lombok.extern.slf4j.Slf4j;
 
 @Service
