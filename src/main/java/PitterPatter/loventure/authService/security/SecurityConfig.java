@@ -36,11 +36,15 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // 허용할 Origin 설정
-        configuration.addAllowedOriginPattern("*"); // 개발 환경에서는 모든 Origin 허용
+        // 허용할 Origin 설정 - 구체적인 도메인 지정
+        configuration.addAllowedOrigin("https://loventure.us");
+        configuration.addAllowedOrigin("https://api.loventure.us");
+        configuration.addAllowedOrigin("http://localhost:5173"); // 개발 환경
+        configuration.addAllowedOrigin("http://localhost:3000"); // 개발 환경
         configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
         configuration.addAllowedHeader("*"); // 모든 헤더 허용
         configuration.setAllowCredentials(true); // 쿠키 허용
+        configuration.setMaxAge(3600L); // preflight 요청 캐시 시간
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -86,6 +90,7 @@ public class SecurityConfig {
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
+                        .requestMatchers("/api/onboarding/**").permitAll() // 개발용: 온보딩 API 임시 허용
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();

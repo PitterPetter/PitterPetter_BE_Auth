@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.DeleteUserResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
+import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.UserMapper;
@@ -70,6 +71,41 @@ public class UserController {
                     .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
         } catch (Exception e) {
             log.error("회원 삭제 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "알 수 없는 서버 에러가 발생했습니다."));
+        }
+    }
+
+    /**
+     * 유저 정보 조회 (For Other Services)
+     * 명세서: GET /api/users/me
+     */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserInfoResponse>> getUserInfo(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            // JWT 토큰에서 추출한 사용자 정보 조회
+            User currentUser = userService.getUserFromUserDetails(userDetails);
+            
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                        .body(ApiResponse.error(ErrorCode.UNAUTHORIZED.getCode(), "로그인 후 진행해주세요."));
+            }
+
+            // UserInfoResponse 생성
+            UserInfoResponse userInfoResponse = new UserInfoResponse(
+                currentUser.getUserId().toString(),
+                currentUser.getName()
+            );
+
+            return ResponseEntity.ok(ApiResponse.success(userInfoResponse));
+
+        } catch (BusinessException e) {
+            log.warn("유저 정보 조회 중 비즈니스 오류 발생: {}", e.getMessage());
+            return ResponseEntity.status(400)
+                    .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("유저 정보 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "알 수 없는 서버 에러가 발생했습니다."));
         }

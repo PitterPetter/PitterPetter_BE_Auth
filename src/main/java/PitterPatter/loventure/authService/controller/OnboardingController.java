@@ -31,7 +31,15 @@ public class OnboardingController {
             @RequestBody @Valid OnboardingRequest onboardingRequest) {
 
         try {
-            String providerId = userService.extractProviderId(userDetails);
+            // 개발용: 인증이 우회된 경우 테스트용 providerId 사용
+            String providerId;
+            if (userDetails == null) {
+                log.warn("인증이 우회된 상태에서 온보딩 API 호출 - 테스트용 providerId 사용");
+                providerId = "test_provider_id"; // 테스트용 providerId
+            } else {
+                providerId = userService.extractProviderId(userDetails);
+            }
+            
             UserDto updatedUser = userService.updateOnboardingInfo(providerId, onboardingRequest);
             
             OnboardingResponse response = new OnboardingResponse(
