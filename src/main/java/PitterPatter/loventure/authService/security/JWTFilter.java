@@ -103,7 +103,14 @@ public class JWTFilter extends OncePerRequestFilter {
         } catch (IllegalArgumentException | SecurityException | IOException e) {
             log.error("JWT 필터 처리 중 오류 발생: {}", e.getMessage(), e);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"error\":\"인증 처리 중 오류가 발생했습니다\",\"code\":\"AUTH_ERROR\"}");
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"JWT 토큰이 유효하지 않습니다\",\"code\":\"INVALID_JWT_TOKEN\"}");
+            return;
+        } catch (Exception e) {
+            log.error("JWT 토큰 파싱 중 예상치 못한 오류 발생: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"JWT 토큰이 유효하지 않습니다\",\"code\":\"INVALID_JWT_TOKEN\"}");
             return;
         }
 
