@@ -244,9 +244,9 @@ public class AuthService {
     public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         Cookie cookie = new Cookie("refresh_token", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // 도메인 간 쿠키 공유를 위해 false로 설정
+        cookie.setSecure(true); // 도메인 간 쿠키 공유를 위해 false로 설정
         cookie.setPath("/");
-        cookie.setDomain(".loventure.us"); // 도메인 설정으로 하위 도메인 간 쿠키 공유
+        cookie.setDomain(".loventure.us");
         cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
         response.addCookie(cookie);
     }
