@@ -88,6 +88,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
                                 "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
+                                "/api/auth/refresh",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
                         .requestMatchers("/api/onboarding/**").permitAll() // 개발용: 온보딩 API 임시 허용
