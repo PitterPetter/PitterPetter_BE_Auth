@@ -32,6 +32,7 @@ import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.service.AuthService;
 import PitterPatter.loventure.authService.service.CoupleService;
 import PitterPatter.loventure.authService.service.UserService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -76,6 +77,13 @@ public class AuthController {
             log.info("요청 Origin: {}", request.getHeader("Origin"));
             log.info("요청 Referer: {}", request.getHeader("Referer"));
             log.info("요청 쿠키: {}", request.getCookies() != null ? java.util.Arrays.toString(request.getCookies()) : "쿠키 없음");
+            
+            // 쿠키 상세 정보 로깅
+            if (request.getCookies() != null) {
+                for (Cookie cookie : request.getCookies()) {
+                    log.info("쿠키 이름: {}, 값: {}", cookie.getName(), cookie.getValue());
+                }
+            }
             
             // 쿠키에서 refresh token 추출
             String refreshToken = authService.getRefreshTokenFromCookie(request);
