@@ -6,9 +6,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import PitterPatter.loventure.authService.dto.request.ProfileUpdateRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.DeleteUserResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
@@ -19,6 +22,7 @@ import PitterPatter.loventure.authService.mapper.UserMapper;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.service.RecommendationDataService;
 import PitterPatter.loventure.authService.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -106,6 +110,39 @@ public class UserController {
                     .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
         } catch (Exception e) {
             log.error("유저 정보 조회 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "알 수 없는 서버 에러가 발생했습니다."));
+        }
+    }
+
+    /**
+     * 사용자 프로필 수정 (For Other Services)
+     * 명세서: PUT /api/users/me
+     */
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> updateUserProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid ProfileUpdateRequest request) {
+        try {
+            // JWT 토큰에서 추출한 사용자 정보 조회
+            User currentUser = userService.getUserFromUserDetails(userDetails);
+            
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                        .body(ApiResponse.error(ErrorCode.UNAUTHORIZED.getCode(), "로그인 후 진행해주세요."));
+            }
+
+            // 프로필 업데이트
+            userService.updateProfile(currentUser.getProviderId(), request);
+
+            return ResponseEntity.ok(ApiResponse.success(null));
+
+        } catch (BusinessException e) {
+            log.warn("사용자 프로필 수정 중 비즈니스 오류 발생: {}", e.getMessage());
+            return ResponseEntity.status(400)
+                    .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("사용자 프로필 수정 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "알 수 없는 서버 에러가 발생했습니다."));
         }
