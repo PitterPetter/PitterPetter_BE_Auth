@@ -27,17 +27,9 @@ public class UserService {
             throw new IllegalArgumentException("사용자를 찾을 수 없습니다: " + providerId);
         }
 
-
-        // 닉네임, 생년월일, 성별 업데이트
-        if (request.getNickname() != null) {
-            user.setNickname(request.getNickname());
-        }
-        if (request.getBirthDate() != null) {
-            user.setBirthDate(request.getBirthDate());
-        }
-        if (request.getGender() != null) {
-            user.setGender(request.getGender());
-        }
+        // 온보딩에서는 닉네임, 생년월일, 성별을 받지 않음
+        // 이 값들은 provider로부터 제공받지 못하면 기본값 null로 두고 mypage에서 수정
+        // 따라서 온보딩에서는 선호도 정보만 업데이트
 
         user.updateOnboardingInfo(
                 request.getAlcoholPreference(),
