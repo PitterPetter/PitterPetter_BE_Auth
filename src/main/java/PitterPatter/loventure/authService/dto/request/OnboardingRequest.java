@@ -1,11 +1,14 @@
 package PitterPatter.loventure.authService.dto.request;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import PitterPatter.loventure.authService.repository.DateCostPreference;
 import PitterPatter.loventure.authService.repository.FavoriteFoodCategories;
+import PitterPatter.loventure.authService.repository.Gender;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,6 +17,13 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class OnboardingRequest {
+
+    @Size(max = 50, message = "닉네임은 50자 이하여야 합니다")
+    private String nickname;
+
+    private LocalDateTime birthDate;
+
+    private Gender gender;
 
     @Min(value = 1, message = "알코올 선호도는 1 이상이어야 합니다")
     @Max(value = 5, message = "알코올 선호도는 5 이하여야 합니다")

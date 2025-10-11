@@ -57,6 +57,9 @@ public class User {
     @Column(length = 100)
     private String name;
 
+    @Column(length = 50)
+    private String nickname;
+
     private LocalDateTime birthDate;
 
     @Enumerated(EnumType.STRING)
@@ -101,6 +104,11 @@ public class User {
     public void updateUserInfo(String email, String name) {
         this.email = email;
         this.name = name;
+    }
+    
+    // 닉네임 업데이트 메서드
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
     }
     // 사용자 상태 변경 메서드
     public void setStatus(AccountStatus status) {
