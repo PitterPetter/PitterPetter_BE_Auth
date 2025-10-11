@@ -38,6 +38,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         // token 발견 시, JWTUtil 내의 isTokenExpired method를 불러와서
         // 유효 기간 확인
+        String token = null;
         try {
             // Authorization 헤더 형식 검증
             if (authorization.split(" ").length < 2) {
@@ -46,7 +47,7 @@ public class JWTFilter extends OncePerRequestFilter {
                 return;
             }
             
-            String token = authorization.split(" ")[1];
+            token = authorization.split(" ")[1];
             if (token == null || token.trim().isEmpty()) {
                 log.warn("빈 토큰 값");
                 filterChain.doFilter(request, response);
@@ -58,7 +59,9 @@ public class JWTFilter extends OncePerRequestFilter {
             // 토큰 만료 확인
             if (jwtUtil.isTokenExpired(token)) {
                 log.warn("만료된 JWT 토큰: {}", token);
-                filterChain.doFilter(request, response);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"error\":\"JWT 토큰이 만료되었습니다\",\"code\":\"JWT_TOKEN_EXPIRED\"}");
                 return;
             }
 
@@ -100,11 +103,35 @@ public class JWTFilter extends OncePerRequestFilter {
             Authentication authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authToken);
 
-        } catch (IllegalArgumentException | SecurityException | IOException e) {
-            log.error("JWT 필터 처리 중 오류 발생: {}", e.getMessage(), e);
+        } catch (io.jsonwebtoken.security.SignatureException e) {
+            log.error("JWT 서명 검증 실패: {} - 토큰: {}", e.getMessage(), token);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"JWT 토큰이 유효하지 않습니다\",\"code\":\"INVALID_JWT_TOKEN\"}");
+            response.getWriter().write("{\"error\":\"JWT 서명이 유효하지 않습니다\",\"code\":\"INVALID_JWT_SIGNATURE\"}");
+            return;
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            log.error("JWT 토큰 만료: {} - 토큰: {}", e.getMessage(), token);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"JWT 토큰이 만료되었습니다\",\"code\":\"JWT_TOKEN_EXPIRED\"}");
+            return;
+        } catch (IllegalArgumentException e) {
+            log.error("JWT 토큰 형식 오류: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"JWT 토큰 형식이 잘못되었습니다\",\"code\":\"INVALID_JWT_FORMAT\"}");
+            return;
+        } catch (SecurityException e) {
+            log.error("JWT 보안 오류: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"JWT 보안 검증 실패\",\"code\":\"JWT_SECURITY_ERROR\"}");
+            return;
+        } catch (IOException e) {
+            log.error("JWT 응답 작성 오류: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"서버 내부 오류\",\"code\":\"INTERNAL_SERVER_ERROR\"}");
             return;
         } catch (Exception e) {
             log.error("JWT 토큰 파싱 중 예상치 못한 오류 발생: {}", e.getMessage(), e);
