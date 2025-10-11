@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -56,6 +57,15 @@ public class AuthController {
 
     @Value("${spring.jwt.redirect.home}")
     private String homeRedirectUrl;
+
+    /**
+     * favicon.ico 요청 처리 (404 오류 방지)
+     */
+    @GetMapping("/favicon.ico")
+    public ResponseEntity<Void> favicon() {
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
     /**
      * 토큰 갱신 (쿠키에서 refresh token 읽기)
      */

@@ -11,8 +11,10 @@ import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class JWTUtil {
     // 실제 JWT 생성하고 검증하는 class
     private final Key key;
@@ -20,9 +22,18 @@ public class JWTUtil {
     // JWTUtil class를 생성해서 application.yml 파일에 존재하는 키를 가져와 인코딩
     // Base64 디코딩 로직 추가 (Gateway와 통일)
     public JWTUtil(@Value("${spring.jwt.secret}") String secret) {
-        // Base64 인코딩된 값 -> 바이트 배열로 디코딩
-        byte[] decodedKey = Base64.getDecoder().decode(secret);
-        this.key = Keys.hmacShaKeyFor(decodedKey);
+        Key tempKey;
+        try {
+            // Base64 인코딩된 값 -> 바이트 배열로 디코딩 시도
+            byte[] decodedKey = Base64.getDecoder().decode(secret);
+            tempKey = Keys.hmacShaKeyFor(decodedKey);
+            log.info("JWT 시크릿 키를 Base64 디코딩하여 설정했습니다. 길이: {}", decodedKey.length);
+        } catch (IllegalArgumentException e) {
+            // Base64 디코딩 실패 시 원본 문자열을 UTF-8 바이트로 변환
+            tempKey = Keys.hmacShaKeyFor(secret.getBytes());
+            log.info("JWT 시크릿 키를 UTF-8 바이트로 변환하여 설정했습니다. 길이: {}", secret.getBytes().length);
+        }
+        this.key = tempKey;
     }
 
     // userID를 포함한 JWT access token 생성
@@ -67,7 +78,12 @@ public class JWTUtil {
 
     // 설정된 token 만료 시간을 현재 시간과 비교해 유효성 검사 진행
     public boolean isTokenExpired(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getExpiration().before(new Date());
+        try {
+            return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getExpiration().before(new Date());
+        } catch (Exception e) {
+            // 토큰 파싱 실패 시 만료된 것으로 간주
+            return true;
+        }
     }
 
     // JWT에서 userID 추출 (BigInteger 기반)
