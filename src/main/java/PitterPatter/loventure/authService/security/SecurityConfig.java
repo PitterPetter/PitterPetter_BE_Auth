@@ -36,15 +36,30 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // 허용할 Origin 설정 - 구체적인 도메인 지정
-        configuration.addAllowedOrigin("https://loventure.us");
-        configuration.addAllowedOrigin("https://api.loventure.us");
-        configuration.addAllowedOrigin("http://localhost:5173"); // 개발 환경
-        configuration.addAllowedOrigin("http://localhost:3000"); // 개발 환경
-        configuration.addAllowedMethod("*"); // 모든 HTTP 메서드 허용
-        configuration.addAllowedHeader("*"); // 모든 헤더 허용
-        configuration.setAllowCredentials(true); // 쿠키 허용
-        configuration.setMaxAge(3600L); // preflight 요청 캐시 시간
+        // 허용할 Origin 설정 - 구체적인 도메인 지정 (deprecated 메서드 대신 패턴 사용)
+        configuration.addAllowedOriginPattern("https://loventure.us");
+        configuration.addAllowedOriginPattern("https://*.loventure.us"); // 하위 도메인 포함
+        configuration.addAllowedOriginPattern("http://localhost:*"); // 로컬 개발 환경 (모든 포트)
+        configuration.addAllowedOriginPattern("http://127.0.0.1:*"); // 로컬 개발 환경
+        
+        // 허용할 HTTP 메서드
+        configuration.addAllowedMethod("GET");
+        configuration.addAllowedMethod("POST");
+        configuration.addAllowedMethod("PUT");
+        configuration.addAllowedMethod("DELETE");
+        configuration.addAllowedMethod("OPTIONS");
+        configuration.addAllowedMethod("PATCH");
+        
+        // 허용할 헤더
+        configuration.addAllowedHeader("*");
+        configuration.addExposedHeader("X-User-Id"); // 커스텀 헤더 노출
+        configuration.addExposedHeader("X-Couple-Id"); // 커스텀 헤더 노출
+        
+        // 쿠키 및 인증 정보 허용
+        configuration.setAllowCredentials(true);
+        
+        // preflight 요청 캐시 시간 (1시간)
+        configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -88,9 +103,10 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
                                 "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
-                                "/api/auth/refresh",
+                                "/api/auth/refresh", "/api/auth/redirect",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
+                        .requestMatchers("OPTIONS", "/**").permitAll() // CORS preflight 요청 허용
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
         return http.build();

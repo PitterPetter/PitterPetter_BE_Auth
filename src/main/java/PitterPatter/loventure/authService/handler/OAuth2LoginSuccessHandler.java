@@ -17,6 +17,8 @@ import PitterPatter.loventure.authService.dto.KakaoUserInfo;
 import PitterPatter.loventure.authService.dto.OAuth2UserInfo;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.service.AuthService;
+import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     // [유지] JWT 생성 및 사용자 처리를 위해 필요
     private final AuthService authService;
+    private final UserService userService;
+    private final CoupleService coupleService;
 
     // [유지] 프론트엔드 기본 리다이렉트 경로
     @Value("${spring.jwt.redirect.base}")
@@ -74,9 +78,14 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 return;
             }
 
-            // [수정] 상태 분기 로직 제거: 토큰을 전달할 단일 URL 생성
+            // ==========================================================
+            // [수정된 부분] Refresh Token을 HttpOnly 쿠키에 저장하여 토큰 갱신을 준비합니다.
+            // ==========================================================
+            authService.setRefreshTokenCookie(response, authResponse.refreshToken());
+
+            // [수정] 사용자 상태 정보를 프론트엔드에 전달 (리다이렉트는 프론트엔드에서 처리)
             String redirectUrl = buildSuccessRedirectUrl(authResponse);
-            log.info("OAuth2 로그인 성공 - 토큰 전달 URL: {}", redirectUrl);
+            log.info("OAuth2 로그인 성공 - 상태 정보 전달 URL: {}", redirectUrl);
             getRedirectStrategy().sendRedirect(request, response, redirectUrl);
 
         } catch (IOException | RuntimeException e) {
@@ -156,21 +165,54 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         };
     }
 
-    // [수정] 상태 분기 로직 제거: 토큰을 전달할 단일 URL 생성
+    // [수정] 사용자 상태 정보를 프론트엔드에 전달 (리다이렉트는 프론트엔드에서 처리)
     private String buildSuccessRedirectUrl(AuthResponse authResponse) {
-        StringBuilder url = new StringBuilder();
-
-        // 1. 프론트엔드 기본 URL로 리다이렉트
-        url.append(REDIRECT_URI_BASE);
-
-        // 2. 쿼리 파라미터로 Access Token과 isNewUser 정보 전달
-        url.append(REDIRECT_URI_BASE.contains("?") ? "&" : "?");
-        url.append("access_token=").append(authResponse.accessToken());
-
-        // is_new_user 정보는 프론트엔드에서 초기 처리에 유용하므로 유지
-        url.append("&is_new_user=").append(authResponse.user().isNewUser());
-
-        return url.toString();
+        try {
+            String providerId = authResponse.user().providerId();
+            
+            // 사용자 조회
+            var user = userService.validateUserByProviderId(providerId);
+            
+            // 개인 온보딩 완료 여부 확인
+            boolean isOnboardingCompleted = userService.isOnboardingCompleted(user);
+            
+            // 커플 매칭 상태 확인
+            boolean isCoupled = coupleService.isUserCoupled(providerId);
+            
+            // 사용자 상태 결정
+            String userStatus;
+            if (!isOnboardingCompleted) {
+                userStatus = "ONBOARDING_REQUIRED";
+                log.info("사용자 상태: 온보딩 필요 - providerId={}", providerId);
+            } else if (!isCoupled) {
+                userStatus = "COUPLE_MATCHING_REQUIRED";
+                log.info("사용자 상태: 커플 매칭 필요 - providerId={}", providerId);
+            } else {
+                userStatus = "COMPLETED";
+                log.info("사용자 상태: 완료 - providerId={}", providerId);
+            }
+            
+            // 프론트엔드 기본 URL에 상태 정보를 쿼리 파라미터로 전달
+            StringBuilder url = new StringBuilder(REDIRECT_URI_BASE);
+            url.append(REDIRECT_URI_BASE.contains("?") ? "&" : "?");
+            url.append("access_token=").append(authResponse.accessToken());
+            url.append("&is_new_user=").append(authResponse.user().isNewUser());
+            url.append("&user_status=").append(userStatus);
+            url.append("&is_onboarding_completed=").append(isOnboardingCompleted);
+            url.append("&is_coupled=").append(isCoupled);
+            
+            return url.toString();
+            
+        } catch (Exception e) {
+            log.error("사용자 상태 확인 중 오류 발생: {}", e.getMessage(), e);
+            // 오류 발생 시 기본 정보만 전달
+            StringBuilder url = new StringBuilder(REDIRECT_URI_BASE);
+            url.append(REDIRECT_URI_BASE.contains("?") ? "&" : "?");
+            url.append("access_token=").append(authResponse.accessToken());
+            url.append("&is_new_user=").append(authResponse.user().isNewUser());
+            url.append("&user_status=ERROR");
+            return url.toString();
+        }
     }
 
     private void redirectToFailure(HttpServletRequest request, HttpServletResponse response, String errorMessage) throws IOException {
