@@ -16,3 +16,4 @@ BEGIN
         RAISE NOTICE 'refresh_token column already exists in users table';
     END IF;
 END $$;
+
