@@ -1,5 +1,6 @@
 package PitterPatter.loventure.authService.repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -41,7 +42,7 @@ public class CoupleRoom {
     private String coupleHomeName;
     
     @Column(name = "dating_start_date")
-    private LocalDateTime datingStartDate;
+    private LocalDate datingStartDate;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
