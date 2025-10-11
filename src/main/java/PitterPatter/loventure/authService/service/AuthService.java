@@ -29,14 +29,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final CoupleRoomRepository coupleRoomRepository;
     private final JWTUtil jwtUtil;
-    
+
     @Value("${spring.jwt.cookie.secure:false}")
     private boolean cookieSecure;
-    
+
     @Value("${spring.jwt.cookie.domain:localhost}")
     private String cookieDomain;
 
-    // 인증 후 서비스 이용을 위한 최종 endpoint(?)
+    /**
+     * 인증 후 서비스 이용을 위한 최종 endpoint(?)
+     */
     @Transactional
     public AuthResponse processOAuth2Login(OAuth2UserInfo oAuth2UserInfo, String providerType) {
         try {
@@ -44,29 +46,18 @@ public class AuthService {
             String email = oAuth2UserInfo.getEmail();
             String name = oAuth2UserInfo.getName();
 
-            // 1. 기존 사용자 조회 -> 보안 강화를 위해 2차 조회 진행
+            // 1. 기존 사용자 조회
             User existingUser = userRepository.findByProviderId(providerId);
             boolean isNewUser = false;
 
             if (existingUser == null) {
-                // 2. 신규 사용자 자동 회원가입
-                log.info("신규 사용자 자동 회원가입 시작: providerId={}, email={}", providerId, email);
-                
-                // 이메일 중복 체크 -> 등록된 이메일인지 확인
+                // 신규 사용자 자동 회원가입 로직... (생략)
                 User emailUser = userRepository.findByEmail(email);
                 if (emailUser != null) {
                     log.warn("이미 존재하는 이메일로 가입 시도: {}", email);
-                    return new AuthResponse(
-                            false,
-                            "이미 가입된 이메일입니다",
-                            null,
-                            null,
-                            null,
-                            null
-                    );
+                    return new AuthResponse(false, "이미 가입된 이메일입니다", null, null, null, null);
                 }
 
-                // 신규 사용자 생성
                 User newUser = User.builder()
                         .providerType(ProviderType.valueOf(providerType.toUpperCase()))
                         .providerId(providerId)
@@ -77,42 +68,38 @@ public class AuthService {
 
                 existingUser = userRepository.save(newUser);
                 isNewUser = true;
-                log.info("신규 사용자 회원가입 완료: userId={}, providerId={}", existingUser.getUserId(), providerId);
             } else {
-                // 3. 기존 사용자 정보 업데이트 (선택적)
+                // 기존 사용자 정보 업데이트 로직... (생략)
                 if (!email.equals(existingUser.getEmail()) || !name.equals(existingUser.getName())) {
                     existingUser.updateUserInfo(email, name);
                     userRepository.save(existingUser);
-                    log.info("기존 사용자 정보 업데이트: userId={}", existingUser.getUserId());
                 }
             }
 
-            // 4. 계정 상태 확인 -> 필요 없으면 삭제 가능
+            // 계정 상태 확인 로직... (생략)
             if (existingUser.getStatus() != AccountStatus.ACTIVE) {
-                log.warn("비활성화된 계정으로 로그인 시도: userId={}", existingUser.getUserId());
-                return new AuthResponse(
-                        false,
-                        "비활성화된 계정입니다",
-                        null,
-                        null,
-                        null,
-                        null
-                );
+                return new AuthResponse(false, "비활성화된 계정입니다", null, null, null, null);
             }
 
             // 5. 사용자의 커플 정보 조회
+            // [수정] CoupleService의 public 메서드를 호출하도록 변경
             String coupleId = getCoupleIdByProviderId(existingUser.getProviderId());
-            
-            // 6. JWT 토큰 생성 (userId와 coupleId 포함)
+
+            // 6. JWT 토큰 생성
             String accessToken = jwtUtil.createJwtWithUserIdAndCoupleId(
-                existingUser.getProviderId(), 
-                existingUser.getUserId(), 
-                coupleId, 
-                10 * 60 * 1000L
-            ); // 10분
+                    existingUser.getProviderId(),
+                    existingUser.getUserId(),
+                    coupleId,
+                    10 * 60 * 1000L
+            );
             String refreshToken = jwtUtil.createRefreshToken(existingUser.getProviderId());
 
-            // 6. 사용자 정보 구성
+            // 7. [핵심 수정] DB에 Refresh Token 저장 및 사용자 엔티티 업데이트 (Stateful)
+            existingUser.setRefreshToken(refreshToken);
+            userRepository.save(existingUser);
+            log.info("DB에 Refresh Token 저장 완료");
+
+            // 8. 응답 구성 (생략)
             AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
                     existingUser.getUserId().toString(),
                     existingUser.getEmail(),
@@ -123,42 +110,37 @@ public class AuthService {
                     isNewUser
             );
 
-            // 7. 성공 응답 생성
             return new AuthResponse(
                     true,
                     isNewUser ? "회원가입 및 로그인 성공" : "로그인 성공",
                     accessToken,
                     refreshToken,
-                    3600L, // 1시간 (초 단위)
+                    3600L,
                     userInfo
             );
 
         } catch (Exception e) {
             log.error("OAuth2 로그인 처리 중 오류 발생: {}", e.getMessage(), e);
             return new AuthResponse(
-                    false,
-                    "로그인 처리 중 오류가 발생했습니다",
-                    null,
-                    null,
-                    null,
-                    null
-            );
+                    false, "로그인 처리 중 오류가 발생했습니다", null, null, null, null);
         }
     }
-    
+
     /**
-     * 사용자의 커플 ID 조회
+     * 사용자의 커플 ID 조회 (private -> public 또는 CoupleService로 이동 권장)
+     * AuthService 내부에서만 사용하기 때문에 private으로 유지하지만,
+     * CoupleService에 종속성이 강한 로직이므로, 향후 CoupleService로 이동을 고려해야 합니다.
      */
     private String getCoupleIdByProviderId(String providerId) {
         try {
             // 사용자가 생성자이거나 파트너인 활성 상태의 커플룸 조회
             Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCreatorUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE)
                     .or(() -> coupleRoomRepository.findByPartnerUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE));
-            
+
             if (coupleRoomOpt.isPresent()) {
                 return coupleRoomOpt.get().getCoupleId();
             }
-            
+
             return null; // 커플이 아닌 경우
         } catch (Exception e) {
             log.warn("커플 정보 조회 중 오류 발생: {}", e.getMessage());
@@ -169,89 +151,55 @@ public class AuthService {
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
         try {
-            log.info("리프레시 토큰 검증 시작: {}", refreshToken != null ? "토큰 존재" : "토큰 없음");
-            
-            if (refreshToken == null || refreshToken.trim().isEmpty()) {
-                log.warn("리프레시 토큰이 null이거나 비어있음");
-                return new AuthResponse(
-                        false,
-                        "리프레시 토큰이 없습니다",
-                        null,
-                        null,
-                        null,
-                        null
-                );
-            }
-            
-            // 리프레시 토큰 검증
-            if (jwtUtil.isTokenExpired(refreshToken)) {
-                log.warn("리프레시 토큰이 만료됨");
-                return new AuthResponse(
-                        false,
-                        "리프레시 토큰이 만료되었습니다",
-                        null,
-                        null,
-                        null,
-                        null
-                );
+            // 1. 기본 유효성 검사 (null, 만료)
+            if (refreshToken == null || refreshToken.trim().isEmpty() || jwtUtil.isTokenExpired(refreshToken)) {
+                log.warn("리프레시 토큰이 유효하지 않거나 만료됨");
+                return new AuthResponse(false, "리프레시 토큰이 유효하지 않거나 만료되었습니다", null, null, null, null);
             }
 
             String providerId = jwtUtil.getUsername(refreshToken);
-            log.info("리프레시 토큰에서 추출한 providerId: {}", providerId);
-            
             User user = userRepository.findByProviderId(providerId);
-            log.info("DB에서 조회한 사용자: {}", user != null ? user.getEmail() : "null");
 
+            // 2. 사용자 존재 및 활성 상태 확인
             if (user == null || user.getStatus() != AccountStatus.ACTIVE) {
-                log.warn("사용자가 존재하지 않거나 비활성 상태: providerId={}, user={}, status={}", 
-                        providerId, user != null ? user.getEmail() : "null", 
-                        user != null ? user.getStatus() : "null");
-                return new AuthResponse(
-                        false,
-                        "유효하지 않은 사용자입니다",
-                        null,
-                        null,
-                        null,
-                        null
-                );
+                log.warn("유효하지 않거나 비활성 사용자: {}", providerId);
+                return new AuthResponse(false, "유효하지 않은 사용자입니다", null, null, null, null);
             }
 
-            // 새로운 액세스 토큰 생성 (userID 포함)
-            String newAccessToken = jwtUtil.createJwtWithUserId(providerId, user.getUserId(), 10 * 60 * 1000L);
+            // 3. [보안 검증] 요청된 Refresh Token이 DB에 저장된 토큰과 일치하는지 확인
+            // User 엔티티의 refreshToken 필드를 사용합니다.
+            if (user.getRefreshToken() == null || !user.getRefreshToken().equals(refreshToken)) {
+                log.warn("DB와 Refresh Token 불일치 감지. 탈취 가능성. 토큰 무효화.");
+                // DB의 토큰을 null로 설정하여 기존 세션 무효화
+                user.setRefreshToken(null);
+                userRepository.save(user);
+
+                return new AuthResponse(false, "유효하지 않은 리프레시 토큰입니다 (불일치)", null, null, null, null);
+            }
+
+            // 4. 새로운 Access Token 및 Refresh Token 생성 (롤링)
+            String coupleId = getCoupleIdByProviderId(providerId); // Couple ID 재조회
+            String newAccessToken = jwtUtil.createJwtWithUserIdAndCoupleId(providerId, user.getUserId(), coupleId, 10 * 60 * 1000L);
             String newRefreshToken = jwtUtil.createRefreshToken(providerId);
 
+            // 5. [핵심 수정] 새로운 Refresh Token을 DB에 저장
+            user.setRefreshToken(newRefreshToken);
+            userRepository.save(user);
+            log.info("DB에 새로운 Refresh Token 저장 및 갱신 완료");
+
+            // 6. 응답 구성 (생략)
             AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
-                    user.getUserId().toString(),
-                    user.getEmail(),
-                    user.getName(),
-                    user.getProviderType().name(),
-                    user.getProviderId(),
-                    user.getStatus().name(),
-                    false
-            );
+                    user.getUserId().toString(), user.getEmail(), user.getName(), user.getProviderType().name(),
+                    user.getProviderId(), user.getStatus().name(), false);
 
             return new AuthResponse(
-                    true,
-                    "토큰 갱신 성공",
-                    newAccessToken,
-                    newRefreshToken,
-                    3600L,
-                    userInfo
-            );
+                    true, "토큰 갱신 성공", newAccessToken, newRefreshToken, 3600L, userInfo);
 
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
-            return new AuthResponse(
-                    false,
-                    "토큰 갱신 중 오류가 발생했습니다",
-                    null,
-                    null,
-                    null,
-                    null
-            );
+            return new AuthResponse(false, "토큰 갱신 중 오류가 발생했습니다", null, null, null, null);
         }
     }
-
     /**
      * 쿠키에서 refresh token 추출
      */
