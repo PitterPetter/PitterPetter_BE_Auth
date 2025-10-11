@@ -1,5 +1,6 @@
 package PitterPatter.loventure.authService.dto.response;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public record RecommendationDataResponse(
             String email,
             String name,
             String nickname,
-            LocalDateTime birthDate,
+            LocalDate birthDate,
             String gender,
             Integer alcoholPreference,
             Integer activeBound,
@@ -47,7 +48,7 @@ public record RecommendationDataResponse(
             String coupleHomeName,
             String creatorUserId,
             String partnerUserId,
-            LocalDateTime datingStartDate,
+            LocalDate datingStartDate,
             String status,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,

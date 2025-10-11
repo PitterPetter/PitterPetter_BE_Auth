@@ -30,7 +30,7 @@ public class CoupleController {
     private final CoupleService coupleService;
     private final UserService userService;
 
-    @PostMapping("/rooms")
+    @PostMapping
     // 커플룸 생성과 온보딩을 함께 처리하는 통합 API
     public ResponseEntity<ApiResponse<CreateCoupleRoomResponse>> createCoupleRoomWithOnboarding(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -85,7 +85,5 @@ public class CoupleController {
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다."));
         }
     }
-    
-    
 
 }

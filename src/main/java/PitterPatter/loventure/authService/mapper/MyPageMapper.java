@@ -39,23 +39,24 @@ public class MyPageMapper {
         }
 
         return new MyPageResponse(
-            user.getUserId(),
-            user.getEmail(),
-            user.getName(),
-            user.getProviderType(),
-            user.getProviderId(),
-            user.getStatus(),
-            user.getBirthDate(),
-            user.getGender(),
-            user.getAlcoholPreference(),
-            user.getActiveBound(),
-            user.getFavoriteFoodCategories(),
-            user.getDateCostPreference(),
-            user.getPreferredAtmosphere(),
-            user.getCreatedAt(),
-            user.getUpdatedAt(),
-            user.getRerollCount(),
-            coupleInfo
+            user.getUserId(),                    // BigInteger userId
+            user.getEmail(),                      // String email
+            user.getName(),                       // String name
+            user.getNickname(),                   // String nickname
+            user.getProviderType(),               // ProviderType providerType
+            user.getProviderId(),                 // String providerId
+            user.getStatus(),                     // AccountStatus status
+            user.getBirthDate(),                  // LocalDate birthDate
+            user.getGender(),                     // Gender gender
+            user.getAlcoholPreference(),          // Integer alcoholPreference
+            user.getActiveBound(),                // Integer activeBound
+            user.getFavoriteFoodCategories(),     // List<FavoriteFoodCategories> favoriteFoodCategories
+            user.getDateCostPreference(),         // DateCostPreference dateCostPreference
+            user.getPreferredAtmosphere(),        // String preferredAtmosphere
+            user.getCreatedAt(),                  // LocalDateTime createdAt
+            user.getUpdatedAt(),                  // LocalDateTime updatedAt
+            user.getRerollCount(),                // Integer rerollCount
+            coupleInfo                            // CoupleInfo coupleInfo
         );
     }
 }

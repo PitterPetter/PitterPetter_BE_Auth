@@ -1,6 +1,9 @@
 package PitterPatter.loventure.authService.service;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.github.f4b6a3.tsid.TsidCreator;
 
+import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
@@ -168,15 +172,14 @@ public class CoupleService {
     }
 
     /**
-     * 데이트 시작일 문자열을 LocalDateTime으로 파싱
+     * 데이트 시작일 문자열을 LocalDate로 파싱
      * 지원 형식:
      * - yyyy.MM.dd (예: 2025.10.09)
      * - yyyy-MM-dd (예: 2025-10-09)
-     * - yyyy-MM-ddTHH:mm:ss (예: 2025-10-09T00:00:00)
      */
-    private java.time.LocalDateTime parseDatingStartDate(String dateString) {
+    private LocalDate parseDatingStartDate(String dateString) {
         if (dateString == null || dateString.trim().isEmpty()) {
-            throw new IllegalArgumentException("데이트 시작일이 비어있습니다.");
+            return null;
         }
         
         String dateStr = dateString.trim();
@@ -184,20 +187,19 @@ public class CoupleService {
         try {
             // 1. yyyy.MM.dd 형식 시도
             if (dateStr.matches("\\d{4}\\.\\d{2}\\.\\d{2}")) {
-                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd");
-                return java.time.LocalDate.parse(dateStr, formatter).atStartOfDay();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+                return LocalDate.parse(dateStr, formatter);
             }
             // 2. yyyy-MM-dd 형식 시도
             else if (dateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                return java.time.LocalDate.parse(dateStr).atStartOfDay();
+                return LocalDate.parse(dateStr);
             }
-            // 3. ISO 형식 시도
             else {
-                return java.time.LocalDateTime.parse(dateStr);
+                throw new IllegalArgumentException("지원하지 않는 날짜 형식입니다: " + dateStr);
             }
-        } catch (java.time.format.DateTimeParseException e) {
-            throw new IllegalArgumentException(
-                "날짜 형식이 올바르지 않습니다. 지원 형식: yyyy.MM.dd, yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss", e);
+        } catch (DateTimeParseException e) {
+            log.error("데이트 시작일 파싱 오류: {}", dateString, e);
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "잘못된 데이트 시작일 형식입니다. (yyyy.MM.dd 또는 yyyy-MM-dd)");
         }
     }
 
@@ -269,6 +271,48 @@ public class CoupleService {
         } catch (Exception e) {
             log.error("커플룸 생성 및 온보딩 중 오류 발생: {}", e.getMessage(), e);
             return ApiResponse.error("50001", "커플룸 생성 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 커플 정보 변경
+     */
+    @Transactional
+    public ApiResponse<Void> updateCoupleInfo(String providerId, CoupleUpdateRequest request) {
+        try {
+            // 사용자 검증
+            userService.validateUserByProviderId(providerId);
+            
+            // 사용자의 커플 정보 조회
+            Optional<CoupleRoom> coupleRoomOpt = getCoupleInfo(providerId);
+            if (coupleRoomOpt.isEmpty()) {
+                return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "커플 정보를 찾을 수 없습니다.");
+            }
+            
+            CoupleRoom coupleRoom = coupleRoomOpt.get();
+            
+            // 커플홈 이름 변경
+            if (request.coupleHomeName() != null && !request.coupleHomeName().trim().isEmpty()) {
+                coupleRoom.setCoupleHomeName(request.coupleHomeName().trim());
+            }
+            
+            // 데이트 시작일 변경
+            if (request.datingStartDate() != null && !request.datingStartDate().trim().isEmpty()) {
+                coupleRoom.setDatingStartDate(parseDatingStartDate(request.datingStartDate()));
+            }
+            
+            coupleRoomRepository.save(coupleRoom);
+            
+            log.info("커플 정보 변경 완료 - coupleId: {}, coupleHomeName: {}, datingStartDate: {}", 
+                    coupleRoom.getCoupleId(), coupleRoom.getCoupleHomeName(), coupleRoom.getDatingStartDate());
+            
+            return ApiResponse.success(null, "커플 정보가 성공적으로 변경되었습니다.");
+            
+        } catch (BusinessException e) {
+            return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
+        } catch (Exception e) {
+            log.error("커플 정보 변경 중 오류 발생: {}", e.getMessage(), e);
+            return ApiResponse.error("50001", "커플 정보 변경 중 오류가 발생했습니다.");
         }
     }
     
