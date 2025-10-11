@@ -15,6 +15,7 @@ public record MyPageResponse(
     BigInteger userId,
     String email,
     String name,
+    String nickname,
     ProviderType providerType,
     String providerId,
     AccountStatus status,

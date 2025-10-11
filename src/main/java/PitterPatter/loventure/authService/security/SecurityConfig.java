@@ -103,7 +103,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/test/**", "/api/auth/status",
                                 "/api/auth/signup", "/oauth2/authorization/**", "/login/oauth2/code/**",
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
-                                "/api/auth/refresh", "/api/auth/redirect","/api/auth/actuator/**",
+                                "/api/auth/refresh", "/api/auth/redirect",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**").permitAll() 
                         .requestMatchers("/api/users/recommendation-data/**").permitAll()
                         .requestMatchers("OPTIONS", "/**").permitAll() // CORS preflight 요청 허용

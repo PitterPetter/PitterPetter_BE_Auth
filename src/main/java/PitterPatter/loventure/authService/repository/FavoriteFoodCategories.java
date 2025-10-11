@@ -1,9 +1,9 @@
 package PitterPatter.loventure.authService.repository;
 
 public enum FavoriteFoodCategories {
-    KOREAN,
-    CHINESE,
-    WESTERN,
-    JAPANESE,
-    SNACK
+    한식,
+    중식,
+    양식,
+    일식,
+    분식
 }
