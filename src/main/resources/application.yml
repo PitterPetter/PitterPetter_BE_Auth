@@ -7,7 +7,7 @@ spring:
       search-paths: '{application}'
       name: auth-service
       label: main
-      fail-fast: true
+      fail-fast: false
   application:
     name: auth-service
   profiles:
