@@ -2,6 +2,7 @@ package PitterPatter.loventure.authService.service;
 
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,12 @@ public class AuthService {
     private final UserRepository userRepository;
     private final CoupleRoomRepository coupleRoomRepository;
     private final JWTUtil jwtUtil;
+    
+    @Value("${spring.jwt.cookie.secure:false}")
+    private boolean cookieSecure;
+    
+    @Value("${spring.jwt.cookie.domain:localhost}")
+    private String cookieDomain;
 
     // 인증 후 서비스 이용을 위한 최종 endpoint(?)
     @Transactional
@@ -162,8 +169,23 @@ public class AuthService {
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
         try {
+            log.info("리프레시 토큰 검증 시작: {}", refreshToken != null ? "토큰 존재" : "토큰 없음");
+            
+            if (refreshToken == null || refreshToken.trim().isEmpty()) {
+                log.warn("리프레시 토큰이 null이거나 비어있음");
+                return new AuthResponse(
+                        false,
+                        "리프레시 토큰이 없습니다",
+                        null,
+                        null,
+                        null,
+                        null
+                );
+            }
+            
             // 리프레시 토큰 검증
             if (jwtUtil.isTokenExpired(refreshToken)) {
+                log.warn("리프레시 토큰이 만료됨");
                 return new AuthResponse(
                         false,
                         "리프레시 토큰이 만료되었습니다",
@@ -175,9 +197,15 @@ public class AuthService {
             }
 
             String providerId = jwtUtil.getUsername(refreshToken);
+            log.info("리프레시 토큰에서 추출한 providerId: {}", providerId);
+            
             User user = userRepository.findByProviderId(providerId);
+            log.info("DB에서 조회한 사용자: {}", user != null ? user.getEmail() : "null");
 
             if (user == null || user.getStatus() != AccountStatus.ACTIVE) {
+                log.warn("사용자가 존재하지 않거나 비활성 상태: providerId={}, user={}, status={}", 
+                        providerId, user != null ? user.getEmail() : "null", 
+                        user != null ? user.getStatus() : "null");
                 return new AuthResponse(
                         false,
                         "유효하지 않은 사용자입니다",
@@ -244,11 +272,12 @@ public class AuthService {
     public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         Cookie cookie = new Cookie("refresh_token", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true); // 도메인 간 쿠키 공유를 위해 false로 설정
+        cookie.setSecure(cookieSecure); // 환경별 설정 사용
         cookie.setPath("/");
-        cookie.setDomain(".loventure.us");
+        cookie.setDomain(cookieDomain);
         cookie.setMaxAge(14 * 24 * 60 * 60); // 14일
         response.addCookie(cookie);
+        log.info("Refresh token 쿠키 설정 완료 - Domain: {}, Secure: {}", cookieDomain, cookieSecure);
     }
 
     /**
@@ -257,11 +286,11 @@ public class AuthService {
     public void clearRefreshTokenCookie(HttpServletResponse response) {
         Cookie cookie = new Cookie("refresh_token", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // 도메인 간 쿠키 공유를 위해 false로 설정
+        cookie.setSecure(cookieSecure); // 환경별 설정 사용
         cookie.setPath("/");
-        cookie.setDomain(".loventure.us"); // 도메인 설정으로 하위 도메인 간 쿠키 공유
+        cookie.setDomain(cookieDomain); // 환경별 도메인 설정
         cookie.setMaxAge(0); // 즉시 삭제
         response.addCookie(cookie);
-        log.info("Refresh token 쿠키 삭제 완료");
+        log.info("Refresh token 쿠키 삭제 완료 - Domain: {}, Secure: {}", cookieDomain, cookieSecure);
     }
 }

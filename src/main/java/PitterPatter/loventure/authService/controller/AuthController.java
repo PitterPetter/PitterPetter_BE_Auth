@@ -63,6 +63,9 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
         try {
             log.info("Refresh token 요청 시작");
+            log.info("요청 Origin: {}", request.getHeader("Origin"));
+            log.info("요청 Referer: {}", request.getHeader("Referer"));
+            log.info("요청 쿠키: {}", request.getCookies() != null ? java.util.Arrays.toString(request.getCookies()) : "쿠키 없음");
             
             // 쿠키에서 refresh token 추출
             String refreshToken = authService.getRefreshTokenFromCookie(request);
