@@ -28,6 +28,17 @@ public class UserService {
         }
 
 
+        // 닉네임, 생년월일, 성별 업데이트
+        if (request.getNickname() != null) {
+            user.setNickname(request.getNickname());
+        }
+        if (request.getBirthDate() != null) {
+            user.setBirthDate(request.getBirthDate());
+        }
+        if (request.getGender() != null) {
+            user.setGender(request.getGender());
+        }
+
         user.updateOnboardingInfo(
                 request.getAlcoholPreference(),
                 request.getActiveBound(),
@@ -136,6 +147,9 @@ public class UserService {
         // null이 아닌 값만 업데이트
         if (request.name() != null) {
             user.updateUserInfo(user.getEmail(), request.name());
+        }
+        if (request.nickname() != null) {
+            user.setNickname(request.nickname());
         }
         if (request.birthDate() != null) {
             user.setBirthDate(request.birthDate());

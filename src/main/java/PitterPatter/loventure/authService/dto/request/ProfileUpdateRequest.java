@@ -14,6 +14,9 @@ public record ProfileUpdateRequest(
     @Size(max = 100, message = "이름은 100자 이하여야 합니다")
     String name,
     
+    @Size(max = 50, message = "닉네임은 50자 이하여야 합니다")
+    String nickname,
+    
     LocalDateTime birthDate,
     
     Gender gender,
