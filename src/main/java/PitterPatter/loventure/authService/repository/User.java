@@ -26,9 +26,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter; // Setter 추가
 
 @Entity
 @Getter
+@Setter // RefreshToken 저장을 위해 @Setter 추가
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -48,6 +50,9 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(name = "refresh_token", length = 500)
+    private String refreshToken;
 
     @Column(length = 100)
     private String name;
@@ -97,7 +102,6 @@ public class User {
         this.email = email;
         this.name = name;
     }
-    
     // 사용자 상태 변경 메서드
     public void setStatus(AccountStatus status) {
         this.status = status;
