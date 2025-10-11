@@ -1,6 +1,6 @@
 package PitterPatter.loventure.authService.dto.request;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import PitterPatter.loventure.authService.repository.DateCostPreference;
@@ -17,7 +17,7 @@ public record ProfileUpdateRequest(
     @Size(max = 50, message = "닉네임은 50자 이하여야 합니다")
     String nickname,
     
-    LocalDateTime birthDate,
+    LocalDate birthDate,
     
     Gender gender,
     

@@ -1,6 +1,7 @@
 package PitterPatter.loventure.authService.dto.response;
 
 import java.math.BigInteger;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +22,7 @@ public record MyPageResponse(
     AccountStatus status,
     
     // 개인 정보
-    LocalDateTime birthDate,
+    LocalDate birthDate,
     Gender gender,
     
     // 온보딩 정보
@@ -43,7 +44,7 @@ public record MyPageResponse(
     public record CoupleInfo(
         String coupleId,
         String coupleHomeName,
-        LocalDateTime datingStartDate,
+        LocalDate datingStartDate,
         String partnerName,
         String partnerEmail,
         String partnerProviderId,

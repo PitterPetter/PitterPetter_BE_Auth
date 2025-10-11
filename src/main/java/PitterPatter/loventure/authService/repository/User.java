@@ -1,6 +1,7 @@
 package PitterPatter.loventure.authService.repository;
 
 import java.math.BigInteger;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +61,7 @@ public class User {
     @Column(length = 50)
     private String nickname;
 
-    private LocalDateTime birthDate;
+    private LocalDate birthDate;
 
     @Enumerated(EnumType.STRING)
     private Gender gender;
@@ -128,7 +129,7 @@ public class User {
     }
     
     // 프로필 수정을 위한 setter 메서드들
-    public void setBirthDate(LocalDateTime birthDate) {
+    public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
     }
     
