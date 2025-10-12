@@ -1,5 +1,6 @@
 package PitterPatter.loventure.authService.dto.response;
 
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,7 +13,7 @@ import PitterPatter.loventure.authService.repository.ProviderType;
 
 public record MyPageResponse(
     // 기본 정보
-    String userId,
+    BigInteger userId,
     String email,
     String name,
     String nickname,

@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +25,7 @@ import PitterPatter.loventure.authService.dto.response.AuthResponse;
 import PitterPatter.loventure.authService.dto.response.ErrorResponse;
 import PitterPatter.loventure.authService.dto.response.MyPageResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
-import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
-import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.MyPageMapper;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
@@ -364,58 +361,6 @@ public class AuthController {
             log.error("사용자 리다이렉트 URL 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ErrorResponse.of("사용자 리다이렉트 URL 조회 중 오류가 발생했습니다", "REDIRECT_URL_ERROR"));
-        }
-    }
-
-    /**
-     * 유저 정보 조회 API (다른 서비스에서 호출)
-     * Path Variable로 userId를 받아서 유저 이름을 반환
-     */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getUserInfo(@PathVariable String userId) {
-        try {
-            log.info("유저 정보 조회 요청 - userId: {}", userId);
-            
-            // userId로 사용자 조회
-            User user = userService.getUserById(userId.toString());
-            
-            // UserInfoResponse 생성
-            UserInfoResponse userInfoResponse = new UserInfoResponse(
-                user.getUserId().toString(),
-                user.getName()
-            );
-            
-            // API 명세서에 맞는 응답 형식
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("data", userInfoResponse);
-            
-            log.info("유저 정보 조회 성공 - userId: {}, name: {}", userId, user.getName());
-            return ResponseEntity.ok(response);
-            
-        } catch (BusinessException e) {
-            log.warn("유저 정보 조회 실패 - userId: {}, error: {}", userId, e.getMessage());
-            
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("status", e.getErrorCode().getCode());
-            errorResponse.put("message", e.getErrorCode().getMessage());
-            
-            if (e.getErrorCode() == ErrorCode.USER_NOT_FOUND || e.getErrorCode() == ErrorCode.USER_NOT_FOUND_BY_ID) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-            } else if (e.getErrorCode() == ErrorCode.INVALID_USER_ID_FORMAT) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-            } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-            }
-            
-        } catch (Exception e) {
-            log.error("유저 정보 조회 중 오류 발생 - userId: {}, error: {}", userId, e.getMessage(), e);
-            
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("status", "50001");
-            errorResponse.put("message", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")");
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }
