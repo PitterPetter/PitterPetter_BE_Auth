@@ -39,7 +39,7 @@ public class MyPageMapper {
         }
 
         return new MyPageResponse(
-            user.getUserId(),                    // BigInteger userId
+            user.getUserId().toString(),         // String userId
             user.getEmail(),                      // String email
             user.getName(),                       // String name
             user.getNickname(),                   // String nickname
