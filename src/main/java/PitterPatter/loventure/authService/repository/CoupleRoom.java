@@ -49,6 +49,13 @@ public class CoupleRoom {
     @Builder.Default
     private CoupleStatus status = CoupleStatus.PENDING;
     
+    @Column(name = "reroll_count")
+    @Builder.Default
+    private Integer rerollCount = 3; // 기본값 3
+    
+    @Column(name = "last_reroll_reset_date")
+    private LocalDate lastRerollResetDate; // 마지막 리롤 리셋 날짜
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
