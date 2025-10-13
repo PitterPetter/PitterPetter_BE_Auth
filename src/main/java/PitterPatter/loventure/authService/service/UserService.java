@@ -1,7 +1,5 @@
 package PitterPatter.loventure.authService.service;
 
-import java.math.BigInteger;
-
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +10,8 @@ import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
+import PitterPatter.loventure.authService.security.JWTUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final JWTUtil jwtUtil;
 
     @Transactional
     public UserDto updateOnboardingInfo(String providerId, OnboardingRequest request) {
@@ -55,14 +56,6 @@ public class UserService {
     }
 
     /**
-     * userId로 사용자 검증 및 조회 (BigInteger userId 사용)
-     */
-    public User validateUserByUserId(String userId) {
-        return userRepository.findByUserId(new BigInteger(userId))
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
-    }
-
-    /**
      * 사용자의 온보딩 완료 여부 확인
      */
     public boolean isOnboardingCompleted(User user) {
@@ -92,33 +85,52 @@ public class UserService {
         return validateUserByProviderId(providerId);
     }
 
+    
     /**
-     * UserDetails에서 userId 추출
+     * HttpServletRequest에서 JWT 토큰 추출
      */
-    public String extractUserId(UserDetails userDetails) {
-        User user = getUserFromUserDetails(userDetails);
-        return user.getUserId().toString();
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Authorization 헤더를 찾을 수 없습니다");
+        }
+        
+        String token = authorization.split(" ")[1];
+        if (token == null || token.trim().isEmpty()) {
+            throw new IllegalArgumentException("JWT 토큰이 비어있습니다");
+        }
+        
+        return token;
     }
     
     /**
-     * userId로 사용자 조회 (BigInteger)
+     * HttpServletRequest에서 coupleId 추출 (JWT에서)
      */
-    public User getUserById(BigInteger userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    public String extractCoupleIdFromRequest(HttpServletRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("HttpServletRequest가 null입니다");
+        }
+        
+        // HttpServletRequest에서 JWT 토큰 추출
+        String token = extractTokenFromRequest(request);
+        
+        // JWT에서 coupleId 추출
+        String coupleId = jwtUtil.getCoupleIdFromToken(token);
+        if (coupleId == null) {
+            throw new IllegalArgumentException("JWT에서 coupleId를 찾을 수 없습니다");
+        }
+        
+        return coupleId;
     }
     
     /**
      * userId로 사용자 조회 (String)
      */
     public User getUserById(String userId) {
-        try {
-            BigInteger userIdBigInt = new BigInteger(userId);
-            return getUserById(userIdBigInt);
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.INVALID_USER_ID_FORMAT);
-        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
+    
     
     /**
      * 사용자 삭제 (소프트 삭제)

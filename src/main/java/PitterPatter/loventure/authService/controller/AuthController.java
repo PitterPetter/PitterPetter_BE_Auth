@@ -10,13 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
@@ -189,7 +189,7 @@ public class AuthController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "프로필이 성공적으로 수정되었습니다");
-            response.put("userId", updatedUser.getUserId().toString());
+            response.put("userId", updatedUser.getUserId());
 
             return ResponseEntity.ok(response);
 
@@ -293,7 +293,7 @@ public class AuthController {
             User savedUser = userService.createUser(signupRequest);
 
             SignupResponse signupResponse = new SignupResponse(
-                    savedUser.getUserId().toString(),
+                    savedUser.getUserId(),
                     savedUser.getCreatedAt(),
                     savedUser.getUpdatedAt()
             );
@@ -306,6 +306,7 @@ public class AuthController {
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")"));
         }
     }
+
 
 
     /**
@@ -371,7 +372,7 @@ public class AuthController {
      * 유저 정보 조회 API
      * 다른 서비스에서 유저 이름을 조회할 때 사용
      */
-    @GetMapping("/user/{userId}")
+    @GetMapping("/internal/user/{userId}")
     public ResponseEntity<?> getUserInfo(@PathVariable String userId) {
         try {
             log.info("유저 정보 조회 요청 - userId: {}", userId);
@@ -379,43 +380,40 @@ public class AuthController {
             // userId로 사용자 조회
             User user = userService.getUserById(userId);
             
-            // UserInfoResponse 생성
-            UserInfoResponse userInfoResponse = new UserInfoResponse(
+            // UserInfoResponse 생성 (data 래핑 제거!)
+            UserInfoResponse response = new UserInfoResponse(
                 user.getUserId().toString(),
                 user.getName()
             );
             
-            // API 명세서에 맞는 응답 형식
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("data", userInfoResponse);
-            
             log.info("유저 정보 조회 성공 - userId: {}, name: {}", userId, user.getName());
+            
+            // 직접 반환 (래핑 없음)
             return ResponseEntity.ok(response);
             
         } catch (BusinessException e) {
             log.warn("유저 정보 조회 실패 - userId: {}, error: {}", userId, e.getMessage());
             
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("status", e.getErrorCode().getCode());
-            errorResponse.put("message", e.getErrorCode().getMessage());
-            
             if (e.getErrorCode() == ErrorCode.USER_NOT_FOUND || e.getErrorCode() == ErrorCode.USER_NOT_FOUND_BY_ID) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    ErrorResponse.of(e.getErrorCode().getMessage(), e.getErrorCode().getCode())
+                );
             } else if (e.getErrorCode() == ErrorCode.INVALID_USER_ID_FORMAT) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ErrorResponse.of(e.getErrorCode().getMessage(), e.getErrorCode().getCode())
+                );
             } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    ErrorResponse.of(e.getErrorCode().getMessage(), e.getErrorCode().getCode())
+                );
             }
             
         } catch (Exception e) {
             log.error("유저 정보 조회 중 오류 발생 - userId: {}, error: {}", userId, e.getMessage(), e);
             
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("status", "50001");
-            errorResponse.put("message", "알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")");
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ErrorResponse.of("알 수 없는 서버 에러가 발생했습니다.(" + e.getMessage() + ")", "50001")
+            );
         }
     }
 }

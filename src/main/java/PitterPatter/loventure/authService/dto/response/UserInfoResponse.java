@@ -6,6 +6,6 @@ package PitterPatter.loventure.authService.dto.response;
  */
 public record UserInfoResponse(
         String userId,    // userId (BigInteger를 String으로 변환)
-        String userName   // 사용자 이름
+        String name       // 사용자 이름
 ) {}
 

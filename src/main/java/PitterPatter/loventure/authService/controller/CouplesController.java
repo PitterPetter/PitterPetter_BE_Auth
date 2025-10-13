@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,8 +18,10 @@ import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboar
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
+import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
 import PitterPatter.loventure.authService.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,18 +117,95 @@ public class CouplesController {
     }
 
     // 커플 매칭 취소
-    @DeleteMapping("/{coupleId}")
+    @DeleteMapping("/cancel")
     public ResponseEntity<ApiResponse<Void>> cancelCouple(
-            @PathVariable String coupleId) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
         
         try {
+            log.info("커플 매칭 취소 요청 시작");
+            
+            // JWT에서 coupleId 추출 시도
+            String coupleId;
+            try {
+                coupleId = userService.extractCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", coupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                coupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (coupleId == null) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("40001", "커플 정보를 찾을 수 없습니다. 먼저 커플 매칭을 진행해주세요."));
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
+            }
+            
             ApiResponse<Void> response = coupleService.cancelCouple(coupleId);
+            log.info("커플 매칭 취소 성공");
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
             log.error("커플 매칭 취소 API 오류: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다."));
+                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
+        }
+    }
+
+    // AI 서버용 커플 추천 데이터 조회 API
+    @GetMapping("/{coupleId}/recommendation-data")
+    public ResponseEntity<ApiResponse<RecommendationDataResponse>> getRecommendationData(
+            @PathVariable String coupleId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
+        
+        try {
+            log.info("커플 추천 데이터 조회 요청 - coupleId: {}", coupleId);
+            
+            // JWT에서 coupleId 추출 시도
+            String jwtCoupleId;
+            try {
+                jwtCoupleId = userService.extractCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", jwtCoupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                jwtCoupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (jwtCoupleId == null) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("40001", "커플 정보를 찾을 수 없습니다. 먼저 커플 매칭을 진행해주세요."));
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", jwtCoupleId);
+            }
+            
+            // 경로 변수의 coupleId와 JWT의 coupleId가 일치하는지 확인
+            if (!coupleId.equals(jwtCoupleId)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("40002", "접근 권한이 없습니다."));
+            }
+            
+            ApiResponse<RecommendationDataResponse> response = coupleService.getRecommendationData(coupleId);
+            
+            if ("success".equals(response.getStatus())) {
+                log.info("커플 추천 데이터 조회 성공 - coupleId: {}", coupleId);
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("커플 추천 데이터 조회 실패 - coupleId: {}, error: {}", coupleId, response.getMessage());
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+        } catch (Exception e) {
+            log.error("커플 추천 데이터 조회 API 오류 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
         }
     }
 }
