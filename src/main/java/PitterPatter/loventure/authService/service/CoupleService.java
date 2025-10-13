@@ -2,6 +2,7 @@ package PitterPatter.loventure.authService.service;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -356,6 +357,9 @@ public class CoupleService {
                 return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "활성화되지 않은 커플입니다.");
             }
             
+            // reroll 관리 로직
+            manageRerollCount(coupleRoom);
+            
             // 사용자 정보 조회 (생성자)
             User creatorUser = userService.getUserByProviderId(coupleRoom.getCreatorUserId());
             if (creatorUser == null) {
@@ -377,7 +381,7 @@ public class CoupleService {
                 createRecommendationUserResponse(partnerUser) : null;
             
             // 커플 응답 데이터 생성
-            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom);
+            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom, creatorUser, partnerUser);
             
             // 최종 응답 생성
             RecommendationDataResponse response = new RecommendationDataResponse(
@@ -435,15 +439,45 @@ public class CoupleService {
     }
     
     /**
+     * reroll 카운트 관리
+     * - 매일 자정에 3으로 초기화
+     * - API 요청 시마다 1씩 감소
+     */
+    @Transactional
+    private void manageRerollCount(CoupleRoom coupleRoom) {
+        LocalDate today = LocalDate.now();
+        LocalDate lastResetDate = coupleRoom.getLastRerollResetDate();
+        
+        // 마지막 리셋 날짜가 없거나 오늘과 다르면 리셋
+        if (lastResetDate == null || !lastResetDate.equals(today)) {
+            coupleRoom.setRerollCount(3);
+            coupleRoom.setLastRerollResetDate(today);
+            coupleRoomRepository.save(coupleRoom);
+            log.info("reroll 카운트 리셋 - coupleId: {}, rerollCount: 3", coupleRoom.getCoupleId());
+        }
+        
+        // 현재 reroll 카운트가 0보다 크면 1 감소
+        if (coupleRoom.getRerollCount() > 0) {
+            coupleRoom.setRerollCount(coupleRoom.getRerollCount() - 1);
+            coupleRoomRepository.save(coupleRoom);
+            log.info("reroll 카운트 감소 - coupleId: {}, 남은 reroll: {}", 
+                    coupleRoom.getCoupleId(), coupleRoom.getRerollCount());
+        } else {
+            log.warn("reroll 카운트 부족 - coupleId: {}, rerollCount: {}", 
+                    coupleRoom.getCoupleId(), coupleRoom.getRerollCount());
+        }
+    }
+    
+    /**
      * 커플 응답 데이터 생성
      */
-    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom) {
+    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom, User creatorUser, User partnerUser) {
         return new RecommendationCoupleResponse(
             Long.parseLong(coupleRoom.getCoupleId()),
             Long.parseLong(coupleRoom.getCreatorUserId()),
             coupleRoom.getPartnerUserId() != null ? Long.parseLong(coupleRoom.getPartnerUserId()) : null,
             coupleRoom.getCoupleHomeName(),
-            0, // reroll - CoupleRoom에 없으므로 기본값
+            coupleRoom.getRerollCount(), // reroll - CoupleRoom의 rerollCount 사용
             0, // ticket - CoupleRoom에 없으므로 기본값
             0, // loveDay - CoupleRoom에 없으므로 기본값
             0  // diaryCount - CoupleRoom에 없으므로 기본값
