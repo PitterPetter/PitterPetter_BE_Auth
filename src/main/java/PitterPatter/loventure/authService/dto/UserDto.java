@@ -1,11 +1,9 @@
 package PitterPatter.loventure.authService.dto;
 
-import java.math.BigInteger;
-
 import PitterPatter.loventure.authService.repository.User;
 
 public record UserDto(
-    BigInteger userId,
+    String userId,
     String email,
     String name,
     String nickname

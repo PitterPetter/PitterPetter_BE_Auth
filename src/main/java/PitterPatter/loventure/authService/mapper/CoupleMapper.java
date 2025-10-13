@@ -20,7 +20,20 @@ public class CoupleMapper {
         return new CoupleMatchResponse(
             coupleRoom.getCoupleId(),
             coupleRoom.getCreatorUserId(),
-            user.getProviderId()
+            user.getProviderId(),
+            null // JWT 토큰 없음
+        );
+    }
+    
+    /**
+     * CoupleRoom과 User, JWT 토큰을 CoupleMatchResponse로 변환
+     */
+    public CoupleMatchResponse toCoupleMatchResponse(CoupleRoom coupleRoom, User user, String accessToken) {
+        return new CoupleMatchResponse(
+            coupleRoom.getCoupleId(),
+            coupleRoom.getCreatorUserId(),
+            user.getProviderId(),
+            accessToken
         );
     }
     
@@ -31,7 +44,8 @@ public class CoupleMapper {
         return new CoupleMatchResponse(
             coupleRoom.getCoupleId(),
             coupleRoom.getCreatorUserId(),
-            coupleRoom.getPartnerUserId()
+            coupleRoom.getPartnerUserId(),
+            null // JWT 토큰 없음
         );
     }
     
