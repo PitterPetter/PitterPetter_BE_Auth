@@ -16,11 +16,15 @@ import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboar
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
+import PitterPatter.loventure.authService.dto.response.RecommendationCoupleResponse;
+import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
+import PitterPatter.loventure.authService.dto.response.RecommendationUserResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.CoupleMapper;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
+import PitterPatter.loventure.authService.repository.DateCostPreference;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.security.JWTUtil;
 import lombok.RequiredArgsConstructor;
@@ -332,6 +336,118 @@ public class CoupleService {
             log.error("커플 정보 변경 중 오류 발생: {}", e.getMessage(), e);
             return ApiResponse.error("50001", "커플 정보 변경 중 오류가 발생했습니다.");
         }
+    }
+    
+    /**
+     * AI 서버용 커플 추천 데이터 조회
+     */
+    public ApiResponse<RecommendationDataResponse> getRecommendationData(String coupleId) {
+        try {
+            // 커플룸 조회
+            Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCoupleId(coupleId);
+            if (coupleRoomOpt.isEmpty()) {
+                return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "존재하지 않는 커플입니다.");
+            }
+            
+            CoupleRoom coupleRoom = coupleRoomOpt.get();
+            
+            // 커플 상태 확인
+            if (coupleRoom.getStatus() != CoupleRoom.CoupleStatus.ACTIVE) {
+                return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "활성화되지 않은 커플입니다.");
+            }
+            
+            // 사용자 정보 조회 (생성자)
+            User creatorUser = userService.getUserByProviderId(coupleRoom.getCreatorUserId());
+            if (creatorUser == null) {
+                return ApiResponse.error(ErrorCode.USER_NOT_FOUND.getCode(), "생성자 사용자 정보를 찾을 수 없습니다.");
+            }
+            
+            // 파트너 사용자 정보 조회
+            User partnerUser = null;
+            if (coupleRoom.getPartnerUserId() != null) {
+                partnerUser = userService.getUserByProviderId(coupleRoom.getPartnerUserId());
+                if (partnerUser == null) {
+                    return ApiResponse.error(ErrorCode.USER_NOT_FOUND.getCode(), "파트너 사용자 정보를 찾을 수 없습니다.");
+                }
+            }
+            
+            // 사용자 응답 데이터 생성
+            RecommendationUserResponse userResponse = createRecommendationUserResponse(creatorUser);
+            RecommendationUserResponse partnerResponse = partnerUser != null ? 
+                createRecommendationUserResponse(partnerUser) : null;
+            
+            // 커플 응답 데이터 생성
+            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom);
+            
+            // 최종 응답 생성
+            RecommendationDataResponse response = new RecommendationDataResponse(
+                userResponse,
+                partnerResponse,
+                coupleResponse
+            );
+            
+            log.info("커플 추천 데이터 조회 성공 - coupleId: {}", coupleId);
+            return ApiResponse.success(response);
+            
+        } catch (Exception e) {
+            log.error("커플 추천 데이터 조회 중 오류 발생 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
+            return ApiResponse.error("50001", "커플 추천 데이터 조회 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 사용자 응답 데이터 생성
+     */
+    private RecommendationUserResponse createRecommendationUserResponse(User user) {
+        return new RecommendationUserResponse(
+            Long.parseLong(user.getUserId()),
+            user.getName(),
+            user.getBirthDate() != null ? user.getBirthDate().toString() : null,
+            user.getGender() != null ? user.getGender().toString() : null,
+            user.getAlcoholPreference() != null && user.getAlcoholPreference() > 0,
+            user.getActiveBound() != null && user.getActiveBound() > 0,
+            user.getFavoriteFoodCategories() != null && !user.getFavoriteFoodCategories().isEmpty() ? 
+                user.getFavoriteFoodCategories().get(0).toString() : null,
+            getDateCostValue(user.getDateCostPreference()),
+            user.getPreferredAtmosphere(),
+            user.getUserId(), // uuid 대신 userId 사용
+            user.getStatus() != null ? user.getStatus().toString() : null,
+            user.getCreatedAt(),
+            user.getUpdatedAt()
+        );
+    }
+    
+    /**
+     * DateCostPreference를 Integer 값으로 변환
+     */
+    private Integer getDateCostValue(DateCostPreference dateCostPreference) {
+        if (dateCostPreference == null) {
+            return null;
+        }
+        
+        return switch (dateCostPreference) {
+            case 만원_미만 -> 10000;
+            case 만원_삼만원 -> 20000;
+            case 삼만원_오만원 -> 40000;
+            case 오만원_팔만원 -> 65000;
+            case 팔만원_이상 -> 100000;
+        };
+    }
+    
+    /**
+     * 커플 응답 데이터 생성
+     */
+    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom) {
+        return new RecommendationCoupleResponse(
+            Long.parseLong(coupleRoom.getCoupleId()),
+            Long.parseLong(coupleRoom.getCreatorUserId()),
+            coupleRoom.getPartnerUserId() != null ? Long.parseLong(coupleRoom.getPartnerUserId()) : null,
+            coupleRoom.getCoupleHomeName(),
+            0, // reroll - CoupleRoom에 없으므로 기본값
+            0, // ticket - CoupleRoom에 없으므로 기본값
+            0, // loveDay - CoupleRoom에 없으므로 기본값
+            0  // diaryCount - CoupleRoom에 없으므로 기본값
+        );
     }
     
 }
