@@ -19,6 +19,7 @@ import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
 import PitterPatter.loventure.authService.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,18 +115,42 @@ public class CouplesController {
     }
 
     // 커플 매칭 취소
-    @DeleteMapping("/{coupleId}")
+    @DeleteMapping("/cancel")
     public ResponseEntity<ApiResponse<Void>> cancelCouple(
-            @PathVariable String coupleId) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
         
         try {
+            log.info("커플 매칭 취소 요청 시작");
+            
+            // JWT에서 coupleId 추출 시도
+            String coupleId;
+            try {
+                coupleId = userService.extractCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", coupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                coupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (coupleId == null) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("40001", "커플 정보를 찾을 수 없습니다. 먼저 커플 매칭을 진행해주세요."));
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
+            }
+            
             ApiResponse<Void> response = coupleService.cancelCouple(coupleId);
+            log.info("커플 매칭 취소 성공");
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
             log.error("커플 매칭 취소 API 오류: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다."));
+                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
         }
     }
 }

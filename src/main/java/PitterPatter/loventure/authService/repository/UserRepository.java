@@ -1,13 +1,13 @@
 package PitterPatter.loventure.authService.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import java.math.BigInteger;
-import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
 @Repository
-public interface UserRepository extends JpaRepository<User, BigInteger> {
+public interface UserRepository extends JpaRepository<User, String> {
     User findByProviderId(String providerId);
     User findByEmail(String email);
-    Optional<User> findByUserId(BigInteger userId);
+    Optional<User> findByUserId(String userId);
 }

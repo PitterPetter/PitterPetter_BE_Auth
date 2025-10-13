@@ -97,7 +97,10 @@ public class JWTFilter extends OncePerRequestFilter {
 
             // MSA Gateway를 위한 헤더 추가
             response.setHeader("X-User-Id", providerId);
-            response.setHeader("X-Couple-Id", "null");
+            
+            // JWT에서 coupleId 추출
+            String coupleId = jwtUtil.getCoupleIdFromToken(token);
+            response.setHeader("X-Couple-Id", coupleId != null ? coupleId : "null");
 
             // SecurityContext에 인증 정보 저장
             Authentication authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
