@@ -1,6 +1,5 @@
 package PitterPatter.loventure.authService.security;
 
-import java.math.BigInteger;
 import java.security.Key;
 import java.util.Base64; // Base64 import 추가
 import java.util.Date;
@@ -37,10 +36,10 @@ public class JWTUtil {
     }
 
     // userID를 포함한 JWT access token 생성
-    public String createJwtWithUserId(String username, BigInteger userId, Long expiredMs) {
+    public String createJwtWithUserId(String username, String userId, Long expiredMs) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("userId", userId.toString())
+                .claim("userId", userId)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -48,10 +47,10 @@ public class JWTUtil {
     }
 
     // userId와 coupleId를 포함한 JWT access token 생성
-    public String createJwtWithUserIdAndCoupleId(String username, BigInteger userId, String coupleId, Long expiredMs) {
+    public String createJwtWithUserIdAndCoupleId(String username, String userId, String coupleId, Long expiredMs) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("userId", userId.toString())
+                .claim("userId", userId)
                 .claim("coupleId", coupleId)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
@@ -86,10 +85,9 @@ public class JWTUtil {
         }
     }
 
-    // JWT에서 userID 추출 (BigInteger 기반)
-    public BigInteger getUserId(String token) {
-        String userIdStr = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("userId", String.class);
-        return new BigInteger(userIdStr);
+    // JWT에서 userID 추출 (String 기반)
+    public String getUserId(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("userId", String.class);
     }
 
     // JWT에서 coupleId 추출

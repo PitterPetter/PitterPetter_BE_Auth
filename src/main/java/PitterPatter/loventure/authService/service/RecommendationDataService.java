@@ -43,7 +43,7 @@ public class RecommendationDataService {
         
         try {
             // 사용자 조회
-            User user = userRepository.findById(parseUserId(userId))
+            User user = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
             
             // 사용자의 커플룸 조회
@@ -157,12 +157,4 @@ public class RecommendationDataService {
      * @return BigInteger 사용자 ID
      * @throws NumberFormatException 잘못된 형식인 경우
      */
-    private java.math.BigInteger parseUserId(String userIdStr) {
-        try {
-            return new java.math.BigInteger(userIdStr);
-        } catch (NumberFormatException e) {
-            log.error("잘못된 사용자 ID 형식: {}", userIdStr);
-            throw e;
-        }
-    }
 }

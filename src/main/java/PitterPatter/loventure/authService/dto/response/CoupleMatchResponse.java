@@ -10,6 +10,9 @@ public record CoupleMatchResponse(
     String creatorUserId,
     
     @NotBlank(message = "파트너 사용자 ID는 필수입니다")
-    String partnerUserId
+    String partnerUserId,
+    
+    // 새 JWT 토큰 (coupleId 포함)
+    String accessToken
 ) {}
 

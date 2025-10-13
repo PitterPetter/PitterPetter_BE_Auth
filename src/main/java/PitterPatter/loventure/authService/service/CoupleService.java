@@ -22,6 +22,7 @@ import PitterPatter.loventure.authService.mapper.CoupleMapper;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
 import PitterPatter.loventure.authService.repository.User;
+import PitterPatter.loventure.authService.security.JWTUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +34,7 @@ public class CoupleService {
     private final CoupleRoomRepository coupleRoomRepository;
     private final UserService userService;
     private final CoupleMapper coupleMapper;
+    private final JWTUtil jwtUtil;
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
@@ -93,9 +95,17 @@ public class CoupleService {
             coupleRoom.setStatus(CoupleRoom.CoupleStatus.ACTIVE); // 매칭 완료 시 ACTIVE로 변경
             coupleRoomRepository.save(coupleRoom);
 
-            CoupleMatchResponse response = coupleMapper.toCoupleMatchResponse(coupleRoom, user);
+            // 커플 매칭 완료 후 새 JWT 생성 (coupleId 포함)
+            String newJwt = jwtUtil.createJwtWithUserIdAndCoupleId(
+                providerId, 
+                user.getUserId(), 
+                coupleId, 
+                600000L // 10분 (600000ms)
+            );
 
-            log.info("커플 매칭 완료 - coupleId: {}, partnerUserId: {}", coupleId, user.getProviderId());
+            CoupleMatchResponse response = coupleMapper.toCoupleMatchResponse(coupleRoom, user, newJwt);
+
+            log.info("커플 매칭 완료 - coupleId: {}, partnerUserId: {}, 새 JWT 발급 완료", coupleId, user.getProviderId());
             return ApiResponse.success(response, "커플 매칭 완료");
             
         } catch (BusinessException e) {
@@ -231,6 +241,14 @@ public class CoupleService {
     public Optional<CoupleRoom> getCoupleInfo(String providerId) {
         return coupleRoomRepository.findByCreatorUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE)
                 .or(() -> coupleRoomRepository.findByPartnerUserIdAndStatus(providerId, CoupleRoom.CoupleStatus.ACTIVE));
+    }
+    
+    /**
+     * 사용자의 커플 ID 조회 (JWT에 coupleId가 없는 경우 사용)
+     */
+    public String getCoupleIdByProviderId(String providerId) {
+        Optional<CoupleRoom> coupleRoomOpt = getCoupleInfo(providerId);
+        return coupleRoomOpt.map(CoupleRoom::getCoupleId).orElse(null);
     }
     
     /**

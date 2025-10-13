@@ -1,6 +1,5 @@
 package PitterPatter.loventure.authService.repository;
 
-import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,7 +39,7 @@ public class User {
 
     @Id
     @Column(unique = true, nullable = false)
-    private BigInteger userId;
+    private String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -96,8 +95,8 @@ public class User {
     @PrePersist
     public void createUserId() {
         if (this.userId == null) {
-            // TSID를 BigInteger로 변환 (TSID는 64비트 정수)
-            this.userId = BigInteger.valueOf(TsidCreator.getTsid().toLong());
+            // TSID를 String으로 변환
+            this.userId = TsidCreator.getTsid().toString();
         }
     }
     
