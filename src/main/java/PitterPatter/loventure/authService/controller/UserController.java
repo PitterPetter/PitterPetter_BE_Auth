@@ -14,13 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 import PitterPatter.loventure.authService.dto.request.ProfileUpdateRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.DeleteUserResponse;
-import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.UserMapper;
 import PitterPatter.loventure.authService.repository.User;
-import PitterPatter.loventure.authService.service.RecommendationDataService;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UserController {
 
-    private final RecommendationDataService recommendationDataService;
     private final UserService userService;
     private final UserMapper userMapper;
 
@@ -148,29 +145,4 @@ public class UserController {
         }
     }
 
-    /**
-     * 코스 추천을 위한 사용자 및 커플 온보딩 정보 조회 (For AI Service)
-     * 명세서: GET /api/users/recommendation-data/{userId}
-     */
-    @GetMapping("/recommendation-data/{userId}")
-    public ResponseEntity<ApiResponse<RecommendationDataResponse>> getRecommendationData(
-            @PathVariable String userId) {
-        try {
-            // 서비스 로직 호출
-            RecommendationDataResponse responseDto = recommendationDataService.getRecommendationDataByUserId(userId);
-
-            return ResponseEntity.ok(ApiResponse.success(responseDto));
-
-        } catch (BusinessException e) {
-            // Service에서 발생한 비즈니스 예외를 적절한 HTTP 상태 코드로 매핑
-            log.warn("추천 데이터 조회 중 비즈니스 오류 발생: {}", e.getMessage());
-            return ResponseEntity.status(400)
-                    .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
-
-        } catch (Exception e) {
-            log.error("추천 데이터 조회 중 오류 발생: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "알 수 없는 서버 에러가 발생했습니다."));
-        }
-    }
 }
