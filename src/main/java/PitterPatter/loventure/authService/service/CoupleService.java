@@ -382,7 +382,7 @@ public class CoupleService {
      */
     private RecommendationUserResponse createRecommendationUserResponse(User user) {
         return new RecommendationUserResponse(
-            Long.parseLong(user.getUserId()),
+            Long.parseLong(user.getUserId().toString()),
             user.getName(),
             user.getBirthDate() != null ? user.getBirthDate().toString() : null,
             user.getGender() != null ? user.getGender().toString() : null,
@@ -392,7 +392,7 @@ public class CoupleService {
                 user.getFavoriteFoodCategories().get(0).toString() : null,
             getDateCostValue(user.getDateCostPreference()),
             user.getPreferredAtmosphere(),
-            user.getUserId(), // uuid 대신 userId 사용
+            user.getUserId().toString(), // uuid 대신 userId 사용
             user.getStatus() != null ? user.getStatus().toString() : null,
             user.getCreatedAt(),
             user.getUpdatedAt()
@@ -430,6 +430,14 @@ public class CoupleService {
             0, // loveDay - CoupleRoom에 없으므로 기본값
             0  // diaryCount - CoupleRoom에 없으므로 기본값
         );
+    }
+    
+    /**
+     * providerId로 coupleId를 조회
+     */
+    public String getCoupleIdByProviderId(String providerId) {
+        Optional<CoupleRoom> coupleRoomOpt = getCoupleInfo(providerId);
+        return coupleRoomOpt.map(CoupleRoom::getCoupleId).orElse(null);
     }
     
 }

@@ -3,6 +3,7 @@ package PitterPatter.loventure.authService.service;
 import java.math.BigInteger;
 
 import org.springframework.security.core.userdetails.UserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,7 @@ import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
+import PitterPatter.loventure.authService.security.JWTUtil;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final JWTUtil jwtUtil;
 
     @Transactional
     public UserDto updateOnboardingInfo(String providerId, OnboardingRequest request) {
@@ -196,5 +199,35 @@ public class UserService {
                 .build();
         
         return userRepository.save(newUser);
+    }
+    
+    /**
+     * HttpServletRequest에서 JWT 토큰을 추출하여 coupleId를 반환
+     */
+    public String extractCoupleIdFromRequest(HttpServletRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("HttpServletRequest가 null입니다");
+        }
+        String token = extractTokenFromRequest(request);
+        String coupleId = jwtUtil.getCoupleIdFromToken(token);
+        if (coupleId == null) {
+            throw new IllegalArgumentException("JWT에서 coupleId를 찾을 수 없습니다");
+        }
+        return coupleId;
+    }
+    
+    /**
+     * HttpServletRequest에서 JWT 토큰을 추출
+     */
+    private String extractTokenFromRequest(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Authorization 헤더를 찾을 수 없습니다");
+        }
+        String token = authorization.split(" ")[1];
+        if (token == null || token.trim().isEmpty()) {
+            throw new IllegalArgumentException("JWT 토큰이 비어있습니다");
+        }
+        return token;
     }
 }
