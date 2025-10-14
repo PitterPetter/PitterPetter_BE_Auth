@@ -10,4 +10,8 @@ public record RecommendationCoupleResponse(
     Integer loveDay,
     Integer diaryCount
 ) {
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes

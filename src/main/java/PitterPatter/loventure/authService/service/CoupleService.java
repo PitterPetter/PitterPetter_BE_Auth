@@ -357,9 +357,12 @@ public class CoupleService {
                 return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "활성화되지 않은 커플입니다.");
             }
             
+<<<<<<< Updated upstream
             // reroll 관리 로직
             manageRerollCount(coupleRoom);
             
+=======
+>>>>>>> Stashed changes
             // 사용자 정보 조회 (생성자)
             User creatorUser = userService.getUserByProviderId(coupleRoom.getCreatorUserId());
             if (creatorUser == null) {
@@ -381,7 +384,11 @@ public class CoupleService {
                 createRecommendationUserResponse(partnerUser) : null;
             
             // 커플 응답 데이터 생성
+<<<<<<< Updated upstream
             RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom, creatorUser, partnerUser);
+=======
+            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom);
+>>>>>>> Stashed changes
             
             // 최종 응답 생성
             RecommendationDataResponse response = new RecommendationDataResponse(
@@ -439,6 +446,7 @@ public class CoupleService {
     }
     
     /**
+<<<<<<< Updated upstream
      * reroll 카운트 관리
      * - 매일 자정에 3으로 초기화
      * - API 요청 시마다 1씩 감소
@@ -472,12 +480,21 @@ public class CoupleService {
      * 커플 응답 데이터 생성
      */
     private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom, User creatorUser, User partnerUser) {
+=======
+     * 커플 응답 데이터 생성
+     */
+    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom) {
+>>>>>>> Stashed changes
         return new RecommendationCoupleResponse(
             Long.parseLong(coupleRoom.getCoupleId()),
             Long.parseLong(coupleRoom.getCreatorUserId()),
             coupleRoom.getPartnerUserId() != null ? Long.parseLong(coupleRoom.getPartnerUserId()) : null,
             coupleRoom.getCoupleHomeName(),
+<<<<<<< Updated upstream
             coupleRoom.getRerollCount(), // reroll - CoupleRoom의 rerollCount 사용
+=======
+            0, // reroll - CoupleRoom에 없으므로 기본값
+>>>>>>> Stashed changes
             0, // ticket - CoupleRoom에 없으므로 기본값
             0, // loveDay - CoupleRoom에 없으므로 기본값
             0  // diaryCount - CoupleRoom에 없으므로 기본값

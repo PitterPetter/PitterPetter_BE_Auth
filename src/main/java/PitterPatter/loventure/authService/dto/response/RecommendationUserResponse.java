@@ -17,4 +17,8 @@ public record RecommendationUserResponse(
     LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes
