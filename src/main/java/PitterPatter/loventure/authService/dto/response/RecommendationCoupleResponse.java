@@ -9,9 +9,4 @@ public record RecommendationCoupleResponse(
     Integer ticket,
     Integer loveDay,
     Integer diaryCount
-) {
-<<<<<<< Updated upstream
-}
-=======
-}
->>>>>>> Stashed changes
+) {}
