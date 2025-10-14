@@ -35,16 +35,6 @@ public class JWTUtil {
         this.key = tempKey;
     }
 
-    // userID를 포함한 JWT access token 생성
-    public String createJwtWithUserId(String username, String userId, Long expiredMs) {
-        return Jwts.builder()
-                .setSubject(username)
-                .claim("userId", userId)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiredMs))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-    }
 
     // userId와 coupleId를 포함한 JWT access token 생성
     public String createJwtWithUserIdAndCoupleId(String username, String userId, String coupleId, Long expiredMs) {
@@ -83,11 +73,6 @@ public class JWTUtil {
             // 토큰 파싱 실패 시 만료된 것으로 간주
             return true;
         }
-    }
-
-    // JWT에서 userID 추출 (String 기반)
-    public String getUserId(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().get("userId", String.class);
     }
 
     // JWT에서 coupleId 추출

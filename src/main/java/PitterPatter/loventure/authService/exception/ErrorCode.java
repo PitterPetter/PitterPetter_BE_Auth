@@ -5,6 +5,7 @@ public enum ErrorCode {
     VALIDATION_ERROR("40001", "유효성 검사 실패"),
     INVALID_USER_ID_FORMAT("40004", "잘못된 사용자 ID 형식입니다"),
     ALREADY_COUPLED("40005", "이미 커플 상태입니다"),
+    INVALID_BEARER_TOKEN("40007", "요청한 토큰이 Bearer 토큰이 아닙니다"),
     
     // 401 Unauthorized
     UNAUTHORIZED("40101", "인증이 필요합니다"),
@@ -18,8 +19,9 @@ public enum ErrorCode {
     
     // 409 Conflict
     USER_ALREADY_EXISTS("40901", "이미 존재하는 회원입니다"),
-    ALREADY_MATCHED_CODE("40902", "이미 매칭된 초대 코드입니다"),
-    ALREADY_CANCELLED("40903", "이미 취소된 상태입니다"),
+    COUPLE_TICKET_CONFLICT("40902", "동일 커플 티켓 정보가 동시에 갱신되었습니다"),
+    ALREADY_MATCHED_CODE("40903", "이미 매칭된 초대 코드입니다"),
+    ALREADY_CANCELLED("40904", "이미 취소된 상태입니다"),
     
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR("50001", "서버 내부 오류가 발생했습니다"),

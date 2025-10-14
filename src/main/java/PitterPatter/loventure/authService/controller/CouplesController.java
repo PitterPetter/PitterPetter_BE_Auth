@@ -17,6 +17,7 @@ import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
+import PitterPatter.loventure.authService.dto.response.CoupleTicketResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
@@ -151,6 +152,52 @@ public class CouplesController {
             
         } catch (Exception e) {
             log.error("커플 매칭 취소 API 오류: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
+        }
+    }
+
+    // 커플 티켓 정보 조회 API (Gateway 내부 호출용)
+    @GetMapping("/ticket")
+    public ResponseEntity<ApiResponse<CoupleTicketResponse>> getCoupleTicket(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
+        
+        try {
+            log.info("커플 티켓 정보 조회 요청 시작");
+            
+            // JWT에서 coupleId 추출 시도
+            String coupleId;
+            try {
+                coupleId = userService.extractCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", coupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                coupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (coupleId == null) {
+                    return ResponseEntity.status(404)
+                            .body(ApiResponse.error("40401", "존재하지 않는 회원입니다."));
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
+            }
+            
+            ApiResponse<CoupleTicketResponse> response = coupleService.getCoupleTicket(coupleId);
+            
+            if ("success".equals(response.getStatus())) {
+                log.info("커플 티켓 정보 조회 성공 - coupleId: {}", coupleId);
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("커플 티켓 정보 조회 실패 - coupleId: {}, error: {}", coupleId, response.getMessage());
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+        } catch (Exception e) {
+            log.error("커플 티켓 정보 조회 API 오류: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
         }

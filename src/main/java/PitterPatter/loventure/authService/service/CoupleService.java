@@ -15,6 +15,7 @@ import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
+import PitterPatter.loventure.authService.dto.response.CoupleTicketResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationCoupleResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
@@ -443,7 +444,7 @@ public class CoupleService {
      * - API 요청 시마다 1씩 감소
      */
     @Transactional
-    private void manageRerollCount(CoupleRoom coupleRoom) {
+    public void manageRerollCount(CoupleRoom coupleRoom) {
         LocalDate today = LocalDate.now();
         LocalDate lastResetDate = coupleRoom.getLastRerollResetDate();
         
@@ -482,5 +483,45 @@ public class CoupleService {
             0  // diaryCount - CoupleRoom에 없으므로 기본값
         );
     }
+    
+    /**
+     * 커플 티켓 정보 조회 (Gateway 내부 호출용)
+     */
+    public ApiResponse<CoupleTicketResponse> getCoupleTicket(String coupleId) {
+        try {
+            // 커플룸 조회
+            Optional<CoupleRoom> coupleRoomOpt = coupleRoomRepository.findByCoupleId(coupleId);
+            if (coupleRoomOpt.isEmpty()) {
+                return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "존재하지 않는 커플입니다.");
+            }
+            
+            CoupleRoom coupleRoom = coupleRoomOpt.get();
+            
+            // 커플 상태 확인
+            if (coupleRoom.getStatus() != CoupleRoom.CoupleStatus.ACTIVE) {
+                return ApiResponse.error(ErrorCode.COUPLE_NOT_FOUND.getCode(), "활성화되지 않은 커플입니다.");
+            }
+            
+            // 티켓 정보 생성 (현재는 임시 데이터, 실제로는 DB에서 조회해야 함)
+            CoupleTicketResponse ticketResponse = new CoupleTicketResponse(
+                coupleId, // coupleId
+                12, // ticket
+                coupleRoom.getUpdatedAt().toString() // lastSyncedAt
+            );
+            
+            log.info("커플 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
+                    coupleId, ticketResponse.ticket());
+            
+            return ApiResponse.success(ticketResponse);
+            
+        } catch (NumberFormatException e) {
+            log.error("coupleId 형식 오류 - coupleId: {}", coupleId, e);
+            return ApiResponse.error("40001", "잘못된 커플 ID 형식입니다.");
+        } catch (Exception e) {
+            log.error("커플 티켓 정보 조회 중 오류 발생 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
+            return ApiResponse.error("50001", "커플 티켓 정보 조회 중 오류가 발생했습니다.");
+        }
+    }
+    
     
 }
