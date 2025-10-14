@@ -2,7 +2,6 @@ package PitterPatter.loventure.authService.service;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -381,7 +380,7 @@ public class CoupleService {
                 createRecommendationUserResponse(partnerUser) : null;
             
             // 커플 응답 데이터 생성
-            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom, creatorUser, partnerUser);
+            RecommendationCoupleResponse coupleResponse = createRecommendationCoupleResponse(coupleRoom);
             
             // 최종 응답 생성
             RecommendationDataResponse response = new RecommendationDataResponse(
@@ -404,7 +403,7 @@ public class CoupleService {
      */
     private RecommendationUserResponse createRecommendationUserResponse(User user) {
         return new RecommendationUserResponse(
-            Long.parseLong(user.getUserId()),
+            user.getUserId(),
             user.getName(),
             user.getBirthDate() != null ? user.getBirthDate().toString() : null,
             user.getGender() != null ? user.getGender().toString() : null,
@@ -471,11 +470,11 @@ public class CoupleService {
     /**
      * 커플 응답 데이터 생성
      */
-    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom, User creatorUser, User partnerUser) {
+    private RecommendationCoupleResponse createRecommendationCoupleResponse(CoupleRoom coupleRoom) {
         return new RecommendationCoupleResponse(
-            Long.parseLong(coupleRoom.getCoupleId()),
-            Long.parseLong(coupleRoom.getCreatorUserId()),
-            coupleRoom.getPartnerUserId() != null ? Long.parseLong(coupleRoom.getPartnerUserId()) : null,
+            coupleRoom.getCoupleId(),
+            coupleRoom.getCreatorUserId(),
+            coupleRoom.getPartnerUserId(),
             coupleRoom.getCoupleHomeName(),
             coupleRoom.getRerollCount(), // reroll - CoupleRoom의 rerollCount 사용
             0, // ticket - CoupleRoom에 없으므로 기본값

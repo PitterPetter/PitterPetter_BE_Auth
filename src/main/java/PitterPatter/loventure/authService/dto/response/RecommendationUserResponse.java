@@ -3,7 +3,7 @@ package PitterPatter.loventure.authService.dto.response;
 import java.time.LocalDateTime;
 
 public record RecommendationUserResponse(
-    Long id,
+    String id,
     String name,
     String birthday,
     String gender,
@@ -16,5 +16,4 @@ public record RecommendationUserResponse(
     String status,
     LocalDateTime createdAt,
     LocalDateTime updatedAt
-) {
-}
+) {}
