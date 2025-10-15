@@ -85,6 +85,14 @@ public class UserService {
         return validateUserByProviderId(providerId);
     }
 
+    /**
+     * ProviderId로 UserId 조회
+     */
+    public String getUserIdByProviderId(String providerId) {
+        User user = userRepository.findByProviderId(providerId);
+        return user != null ? user.getUserId() : null;
+    }
+
     
     /**
      * HttpServletRequest에서 JWT 토큰 추출

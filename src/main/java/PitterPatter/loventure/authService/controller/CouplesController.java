@@ -12,15 +12,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import PitterPatter.loventure.authService.dto.TicketBalanceResponse;
 import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
 import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
-import PitterPatter.loventure.authService.dto.response.CoupleTicketResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.TicketService;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -35,6 +36,7 @@ public class CouplesController {
     
     private final CoupleService coupleService;
     private final UserService userService;
+    private final TicketService ticketService;
 
     // 커플룸 생성과 온보딩을 함께 처리하는 통합 API
     @PostMapping("/room")
@@ -157,9 +159,9 @@ public class CouplesController {
         }
     }
 
-    // 커플 티켓 정보 조회 API (Gateway 내부 호출용)
+    // 커플 티켓 정보 조회 API (JWT 토큰에서 coupleId 파싱)
     @GetMapping("/ticket")
-    public ResponseEntity<ApiResponse<CoupleTicketResponse>> getCoupleTicket(
+    public ResponseEntity<ApiResponse<TicketBalanceResponse>> getCoupleTicket(
             @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest request) {
         
@@ -186,15 +188,13 @@ public class CouplesController {
                 log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
             }
             
-            ApiResponse<CoupleTicketResponse> response = coupleService.getCoupleTicket(coupleId);
+            // 새로운 TicketService 사용
+            TicketBalanceResponse ticketInfo = ticketService.getTicketBalanceResponse(coupleId);
+            ApiResponse<TicketBalanceResponse> response = ApiResponse.success(ticketInfo);
             
-            if ("success".equals(response.getStatus())) {
-                log.info("커플 티켓 정보 조회 성공 - coupleId: {}", coupleId);
-                return ResponseEntity.ok(response);
-            } else {
-                log.warn("커플 티켓 정보 조회 실패 - coupleId: {}, error: {}", coupleId, response.getMessage());
-                return ResponseEntity.badRequest().body(response);
-            }
+            log.info("커플 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
+                    coupleId, ticketInfo.getTicket());
+            return ResponseEntity.ok(response);
             
         } catch (Exception e) {
             log.error("커플 티켓 정보 조회 API 오류: {}", e.getMessage(), e);
