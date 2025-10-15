@@ -106,10 +106,7 @@ public class TicketController {
             @PathVariable String coupleId) {
         
         TicketInfo ticketInfo = ticketService.getTicketInfo(coupleId);
-        TicketResponse response = TicketResponse.builder()
-            .status("success")
-            .data(ticketInfo)
-            .build();
+        TicketResponse response = new TicketResponse("success", ticketInfo);
         
         return ResponseEntity.ok(response);
     }
@@ -125,10 +122,7 @@ public class TicketController {
             @RequestBody TicketInfo ticketInfo) {
         
         ticketService.updateTicketInfo(coupleId, ticketInfo);
-        TicketResponse response = TicketResponse.builder()
-            .status("success")
-            .data(ticketInfo)
-            .build();
+        TicketResponse response = new TicketResponse("success", ticketInfo);
         
         return ResponseEntity.ok(response);
     }

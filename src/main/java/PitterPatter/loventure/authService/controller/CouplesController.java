@@ -193,7 +193,7 @@ public class CouplesController {
             ApiResponse<TicketBalanceResponse> response = ApiResponse.success(ticketInfo);
             
             log.info("커플 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
-                    coupleId, ticketInfo.getTicket());
+                    coupleId, ticketInfo.ticket());
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
