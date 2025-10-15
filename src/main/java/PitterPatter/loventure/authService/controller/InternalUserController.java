@@ -6,31 +6,61 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
+import PitterPatter.loventure.authService.exception.BusinessException;
+import PitterPatter.loventure.authService.exception.ErrorCode;
+import PitterPatter.loventure.authService.service.UserService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * internal/user/ 경로에 대한 요청을 처리하는 컨트롤러
- * 정적 리소스가 없을 때 적절한 응답을 제공합니다.
+ * MSA 내부 통신을 위한 사용자 정보 조회 API를 제공합니다.
  */
 @RestController
 @RequestMapping("/internal/user")
+@RequiredArgsConstructor
 @Slf4j
 public class InternalUserController {
 
+    private final UserService userService;
+
     /**
      * internal/user/{userId} 경로에 대한 요청 처리
-     * 현재는 사용자 ID를 로그로 기록하고 404 응답을 반환합니다.
+     * Content 서비스에서 사용자 정보를 조회하기 위한 내부 API
      * 
      * @param userId 사용자 ID
-     * @return 404 Not Found 응답
+     * @return 사용자 정보 또는 404 Not Found
      */
     @GetMapping("/{userId}")
-    public ResponseEntity<Void> handleInternalUserRequest(@PathVariable String userId) {
-        log.info("internal/user/{} 경로에 대한 요청이 들어왔습니다. 정적 리소스가 없어 404를 반환합니다.", userId);
-        
-        // TODO: 필요에 따라 사용자별 정적 리소스 처리 로직을 구현할 수 있습니다.
-        // 예: 사용자 프로필 이미지, 개인화된 리소스 등
-        
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<UserInfoResponse> getUserById(@PathVariable String userId) {
+        try {
+            log.info("내부 MSA 통신: 사용자 정보 조회 요청 - userId: {}", userId);
+            
+            // userId로 사용자 조회
+            var user = userService.getUserById(userId);
+            
+            // UserInfoResponse 생성
+            UserInfoResponse userInfoResponse = new UserInfoResponse(
+                user.getUserId().toString(),
+                user.getName()
+            );
+            
+            log.info("내부 MSA 통신: 사용자 정보 조회 성공 - userId: {}, name: {}", userId, user.getName());
+            return ResponseEntity.ok(userInfoResponse);
+            
+        } catch (BusinessException e) {
+            log.warn("내부 MSA 통신: 사용자 정보 조회 실패 - userId: {}, error: {}", userId, e.getMessage());
+            
+            if (e.getErrorCode() == ErrorCode.USER_NOT_FOUND || e.getErrorCode() == ErrorCode.USER_NOT_FOUND_BY_ID) {
+                return ResponseEntity.notFound().build();
+            } else {
+                return ResponseEntity.internalServerError().build();
+            }
+            
+        } catch (Exception e) {
+            log.error("내부 MSA 통신: 사용자 정보 조회 중 오류 발생 - userId: {}, error: {}", userId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
