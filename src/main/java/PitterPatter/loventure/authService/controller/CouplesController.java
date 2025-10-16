@@ -11,15 +11,16 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
 import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.TicketService;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -34,6 +35,7 @@ public class CouplesController {
     
     private final CoupleService coupleService;
     private final UserService userService;
+    private final TicketService ticketService;
 
     // 커플룸 생성과 온보딩을 함께 처리하는 통합 API
     @PostMapping("/room")
@@ -156,6 +158,47 @@ public class CouplesController {
         }
     }
 
+    // Gateway용 티켓 정보 조회 API (JWT 토큰에서 coupleId 파싱)
+    @GetMapping("/ticket")
+    public ResponseEntity<TicketInfo> getCoupleTicket(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
+        
+        try {
+            log.info("Gateway용 티켓 정보 조회 요청 시작");
+            
+            // JWT에서 coupleId 추출 시도
+            String coupleId;
+            try {
+                coupleId = userService.extractCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", coupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                coupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (coupleId == null) {
+                    log.error("커플 정보를 찾을 수 없음 - providerId: {}", providerId);
+                    return ResponseEntity.notFound().build();
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
+            }
+            
+            // TicketService에서 티켓 정보 조회 (Redis 우선, 없으면 DB에서 조회)
+            TicketInfo ticketInfo = ticketService.getTicketInfo(coupleId);
+            
+            log.info("커플 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
+                    coupleId, ticketInfo.ticket());
+            return ResponseEntity.ok(ticketInfo);
+            
+        } catch (Exception e) {
+            log.error("커플 티켓 정보 조회 API 오류: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
     // AI 서버용 커플 추천 데이터 조회 API
     @GetMapping("/{coupleId}/recommendation-data")
     public ResponseEntity<ApiResponse<RecommendationDataResponse>> getRecommendationData(
