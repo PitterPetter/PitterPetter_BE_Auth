@@ -54,38 +54,8 @@ public class Couple {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 비즈니스 로직: 오늘 티켓 추가 (isTodayTicket이 true일 때만)
-    public boolean addTodayTicket() {
-        if (!this.isTodayTicket) {
-            return false; // 이미 오늘 티켓을 사용했음
-        }
-        
-        this.ticketCount++;
-        this.isTodayTicket = false;
-        this.lastSyncedAt = LocalDateTime.now();
-        return true;
-    }
-
-    // 비즈니스 로직: 티켓 사용 (ticketCount가 0보다 클 때만)
-    public boolean useTicket() {
-        if (this.ticketCount <= 0) {
-            return false;
-        }
-        
-        this.ticketCount--;
-        this.lastSyncedAt = LocalDateTime.now();
-        return true;
-    }
-
-    // 티켓 잔액 확인
-    public boolean hasAvailableTicket() {
-        return this.ticketCount > 0;
-    }
-
-    // 오늘 티켓 사용 가능 여부 확인
-    public boolean canUseTodayTicket() {
-        return this.isTodayTicket;
-    }
+    // Write-Through 패턴에서는 비즈니스 로직이 Gateway에서 처리되므로
+    // Couple 엔티티는 단순한 데이터 저장소 역할만 합니다.
 
     // 일일 티켓 초기화 (매일 정각에 호출)
     public void resetDailyTicket() {

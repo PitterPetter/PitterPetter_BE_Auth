@@ -11,10 +11,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.request.CoupleMatchRequest;
 import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
-import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;

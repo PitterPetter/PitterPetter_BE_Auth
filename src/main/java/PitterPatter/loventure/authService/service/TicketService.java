@@ -8,10 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import PitterPatter.loventure.authService.domain.Couple;
-import PitterPatter.loventure.authService.dto.TicketBalanceResponse;
 import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.exception.CoupleNotFoundException;
-import PitterPatter.loventure.authService.exception.InsufficientTicketException;
 import PitterPatter.loventure.authService.repository.CoupleRepository;
 import PitterPatter.loventure.authService.repository.TicketCacheRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,108 +53,8 @@ public class TicketService {
         }
     }
 
-    /**
-     * 티켓 추가 (코스 저장 시)
-     * isTodayTicket이 true일 때만 티켓 추가
-     */
-    @Transactional
-    public boolean addTodayTicket(String coupleId) {
-        try {
-            // 1. 현재 티켓 정보 조회
-            TicketInfo currentTicket = getTicketInfo(coupleId);
-            
-            // 2. isTodayTicket이 true인지 확인
-            if (!currentTicket.isTodayTicket()) {
-                log.warn("❌ 이미 오늘 티켓을 사용함 - coupleId: {}", coupleId);
-                return false;
-            }
-            
-            // 3. DB에서 티켓 추가
-            Couple couple = findCoupleById(coupleId);
-            boolean added = couple.addTodayTicket();
-            
-            if (added) {
-                coupleRepository.save(couple);
-                
-                // 4. Redis 업데이트
-                TicketInfo updatedTicket = convertToTicketInfo(couple);
-                ticketCacheRepository.save(coupleId, updatedTicket);
-                
-                log.info("✅ 티켓 추가 완료 - coupleId: {}, ticket: {} → {}", 
-                        coupleId, currentTicket.ticket(), updatedTicket.ticket());
-            }
-            
-            return added;
-            
-        } catch (Exception e) {
-            log.error("🚨 티켓 추가 실패 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
-            throw new RuntimeException("티켓 추가 실패", e);
-        }
-    }
-
-    /**
-     * 티켓 사용 (지역락 해제 시)
-     * ticketCount가 0보다 클 때만 티켓 사용
-     */
-    @Transactional
-    public void useTicket(String coupleId) {
-        try {
-            // 1. 현재 티켓 정보 조회
-            TicketInfo currentTicket = getTicketInfo(coupleId);
-            
-            // 2. 티켓이 있는지 확인
-            if (currentTicket.ticket() <= 0) {
-                throw new InsufficientTicketException("티켓이 부족합니다.");
-            }
-            
-            // 3. DB에서 티켓 사용
-            Couple couple = findCoupleById(coupleId);
-            boolean used = couple.useTicket();
-            
-            if (!used) {
-                throw new InsufficientTicketException("티켓이 부족합니다.");
-            }
-            
-            coupleRepository.save(couple);
-            
-            // 4. Redis 업데이트
-            TicketInfo updatedTicket = convertToTicketInfo(couple);
-            ticketCacheRepository.save(coupleId, updatedTicket);
-            
-            log.info("✅ 티켓 사용 완료 - coupleId: {}, ticket: {} → {}", 
-                    coupleId, currentTicket.ticket(), updatedTicket.ticket());
-            
-        } catch (InsufficientTicketException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("🚨 티켓 사용 실패 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
-            throw new RuntimeException("티켓 사용 실패", e);
-        }
-    }
-
-    /**
-     * 티켓 정보 업데이트 (Gateway에서 호출) - 기존 메서드
-     */
-    @Transactional
-    public void updateTicketInfo(String coupleId, TicketInfo ticketInfo) {
-        try {
-            // 1. DB 업데이트
-            Couple couple = findCoupleById(coupleId);
-            couple.setTicketCount(ticketInfo.ticket());
-            couple.setIsTodayTicket(ticketInfo.isTodayTicket());
-            couple.setLastSyncedAt(ticketInfo.lastSyncedAt());
-            coupleRepository.save(couple);
-            
-            // 2. Redis 업데이트
-            ticketCacheRepository.save(coupleId, ticketInfo);
-            
-            log.info("✅ 티켓 정보 업데이트 완료 - coupleId: {}, ticket: {}", coupleId, ticketInfo.ticket());
-            
-        } catch (Exception e) {
-            log.error("🚨 티켓 정보 업데이트 실패 - coupleId: {}, error: {}", coupleId, e.getMessage(), e);
-            throw new RuntimeException("티켓 정보 업데이트 실패", e);
-        }
-    }
+    // Write-Through 패턴에서는 티켓 추가/삭제 로직이 불필요합니다.
+    // Gateway에서 Redis에 직접 관리하고, Auth Service는 동기화만 담당합니다.
 
     /**
      * Write-Through 패턴용 티켓 정보 업데이트
@@ -213,17 +111,15 @@ public class TicketService {
 
     /**
      * 일일 티켓 초기화 (매일 정각)
+     * Write-Through 패턴에서는 DB만 초기화 (Redis는 Gateway에서 관리)
      */
     @Transactional
     public void resetAllDailyTickets() {
         try {
             LocalDateTime now = LocalDateTime.now();
             
-            // 1. DB에서 모든 isTodayTicket을 true로 변경
+            // DB에서 모든 isTodayTicket을 true로 변경
             int updatedCount = coupleRepository.resetAllDailyTickets(now);
-            
-            // 2. Redis에서 모든 티켓 정보 초기화
-            ticketCacheRepository.resetAllDailyTickets();
             
             log.info("🎉 일일 티켓 초기화 완료 - DB 업데이트: {}건", updatedCount);
             
@@ -233,29 +129,8 @@ public class TicketService {
         }
     }
 
-    /**
-     * 티켓 잔액 조회 (기존 API 호환성)
-     */
-    @Transactional(readOnly = true)
-    public int getDailyTicketBalance(String coupleId) {
-        TicketInfo ticketInfo = getTicketInfo(coupleId);
-        return ticketInfo.ticket();
-    }
-
-    /**
-     * 티켓 전체 정보 조회 (기존 API 호환성)
-     */
-    @Transactional(readOnly = true)
-    public TicketBalanceResponse getTicketBalanceResponse(String coupleId) {
-        TicketInfo ticketInfo = getTicketInfo(coupleId);
-        
-        return new TicketBalanceResponse(
-            coupleId,
-            ticketInfo.ticket(),
-            ticketInfo.isTodayTicket(),
-            ticketInfo.lastSyncedAt()
-        );
-    }
+    // Write-Through 패턴에서는 조회 기능만 필요합니다.
+    // 티켓 추가/삭제는 Gateway에서 Redis를 통해 처리됩니다.
 
     /**
      * Couple 조회 헬퍼 메서드

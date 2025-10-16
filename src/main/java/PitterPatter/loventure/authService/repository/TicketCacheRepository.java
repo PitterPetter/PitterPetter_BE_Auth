@@ -1,6 +1,5 @@
 package PitterPatter.loventure.authService.repository;
 
-import java.util.Set;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -19,10 +18,11 @@ public class TicketCacheRepository {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private static final String COUPLE_TICKET_KEY_PREFIX = "coupleId:";
-    private static final int DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7일
+    private static final int DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 1일
 
     /**
-     * 티켓 정보 저장
+     * 티켓 정보 저장 (Gateway에서만 사용)
+     * Write-Through 패턴에서는 Auth Service가 Redis에 직접 쓰지 않음
      */
     public void save(String coupleId, TicketInfo ticketInfo) {
         try {
@@ -56,56 +56,8 @@ public class TicketCacheRepository {
         }
     }
 
-    /**
-     * 티켓 정보 삭제
-     */
-    public void deleteByCoupleId(String coupleId) {
-        try {
-            String key = COUPLE_TICKET_KEY_PREFIX + coupleId;
-            redisTemplate.delete(key);
-            log.debug("Redis 삭제 - Key: {}", key);
-        } catch (Exception e) {
-            log.error("Redis 삭제 실패 - Key: {}, Error: {}", 
-                COUPLE_TICKET_KEY_PREFIX + coupleId, e.getMessage(), e);
-            throw new RuntimeException("Redis 데이터 삭제 실패", e);
-        }
-    }
-
-    /**
-     * 모든 티켓 키 조회
-     */
-    public Set<String> findAllKeys() {
-        try {
-            return redisTemplate.keys(COUPLE_TICKET_KEY_PREFIX + "*");
-        } catch (Exception e) {
-            log.error("Redis 키 조회 실패 - Error: {}", e.getMessage(), e);
-            throw new RuntimeException("Redis 키 조회 실패", e);
-        }
-    }
-
-    /**
-     * 일일 티켓 초기화 (모든 티켓의 isTodayTicket을 true로 변경)
-     */
-    public void resetAllDailyTickets() {
-        try {
-            Set<String> keys = findAllKeys();
-            for (String key : keys) {
-                TicketInfo ticketInfo = findByCoupleId(key.replace(COUPLE_TICKET_KEY_PREFIX, ""));
-                if (ticketInfo != null) {
-                    TicketInfo resetTicketInfo = new TicketInfo(
-                        ticketInfo.coupleId(),
-                        ticketInfo.ticket(),
-                        true, // isTodayTicket을 true로 변경
-                        java.time.LocalDateTime.now()
-                    );
-                    save(ticketInfo.coupleId(), resetTicketInfo);
-                }
-            }
-            log.info("Redis 일일 티켓 초기화 완료 - 처리된 키 수: {}", keys.size());
-        } catch (Exception e) {
-            log.error("Redis 일일 티켓 초기화 실패 - Error: {}", e.getMessage(), e);
-            throw new RuntimeException("Redis 일일 티켓 초기화 실패", e);
-        }
-    }
+    // Write-Through 패턴에서는 Auth Service가 Redis에 직접 쓰지 않으므로
+    // 삭제, 키 조회, 일일 초기화 등의 메서드는 불필요합니다.
+    // Redis 관리는 Gateway에서 담당합니다.
 }
 
