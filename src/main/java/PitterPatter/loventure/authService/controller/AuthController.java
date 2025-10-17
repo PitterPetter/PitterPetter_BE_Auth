@@ -169,12 +169,13 @@ public class AuthController {
             }
 
             // 티켓 정보 조회 (커플이 있는 경우에만)
-            TicketInfo ticketInfo = null;
+            Integer ticket = null;
             if (coupleRoomOpt.isPresent()) {
                 try {
                     String coupleId = coupleRoomOpt.get().getCoupleId();
                     if (coupleId != null) {
-                        ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
+                        TicketInfo ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
+                        ticket = ticketInfo.ticket();
                     }
                 } catch (Exception e) {
                     log.warn("티켓 정보 조회 실패: {}", e.getMessage());
@@ -183,7 +184,7 @@ public class AuthController {
             }
 
             // 매퍼를 사용하여 MyPageResponse 생성
-            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner, ticketInfo);
+            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner, ticket);
 
             MyPageApiResponse response = new MyPageApiResponse(true, myPageResponse);
             return ResponseEntity.ok(response);

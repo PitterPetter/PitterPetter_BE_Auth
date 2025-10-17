@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.repository.AccountStatus;
 import PitterPatter.loventure.authService.repository.DateCostPreference;
 import PitterPatter.loventure.authService.repository.FavoriteFoodCategories;
@@ -41,7 +40,7 @@ public record MyPageResponse(
     CoupleInfo coupleInfo,
     
     // 티켓 정보
-    TicketInfo ticketInfo
+    Integer ticket
 ) {
     
     public record CoupleInfo(
