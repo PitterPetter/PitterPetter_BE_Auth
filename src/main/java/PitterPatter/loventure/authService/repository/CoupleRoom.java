@@ -56,6 +56,13 @@ public class CoupleRoom {
     @Column(name = "last_reroll_reset_date")
     private LocalDate lastRerollResetDate; // 마지막 리롤 리셋 날짜
     
+    @Column(name = "is_rock_completed")
+    @Builder.Default
+    private Boolean isRockCompleted = false;
+    
+    @Column(name = "rock_completed_at")
+    private LocalDateTime rockCompletedAt;
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

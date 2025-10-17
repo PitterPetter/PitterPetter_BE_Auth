@@ -37,7 +37,10 @@ public record MyPageResponse(
     Integer rerollCount,
     
     // 커플 정보
-    CoupleInfo coupleInfo
+    CoupleInfo coupleInfo,
+    
+    // 티켓 정보
+    Integer ticket
 ) {
     
     public record CoupleInfo(

@@ -20,13 +20,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
-import PitterPatter.loventure.authService.dto.response.ErrorResponse;
+import PitterPatter.loventure.authService.dto.response.LogoutResponse;
+import PitterPatter.loventure.authService.dto.response.MyPageApiResponse;
 import PitterPatter.loventure.authService.dto.response.MyPageResponse;
+import PitterPatter.loventure.authService.dto.response.ProfileUpdateResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
+import PitterPatter.loventure.authService.dto.response.UserExistsResponse;
+import PitterPatter.loventure.authService.dto.response.UserInfoApiResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
+import PitterPatter.loventure.authService.dto.response.UserStatusResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.MyPageMapper;
@@ -34,6 +40,7 @@ import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.service.AuthService;
 import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.TerritoryServiceClient;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +59,7 @@ public class AuthController {
     private final UserService userService;
     private final CoupleService coupleService;
     private final MyPageMapper myPageMapper;
+    private final TerritoryServiceClient territoryServiceClient;
 
     @Value("${spring.jwt.redirect.onboarding}")
     private String onboardingRedirectUrl;
@@ -61,6 +69,9 @@ public class AuthController {
 
     @Value("${spring.jwt.redirect.home}")
     private String homeRedirectUrl;
+
+    @Value("${spring.jwt.redirect.rock:https://lovuenture.us/home/district/choose}")
+    private String rockRedirectUrl;
 
     /**
      * favicon.ico 요청 처리 (404 오류 방지)
@@ -95,7 +106,7 @@ public class AuthController {
             if (refreshToken == null) {
                 log.warn("리프레시 토큰이 없습니다");
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("리프레시 토큰이 없습니다", "REFRESH_TOKEN_NOT_FOUND"));
+                        .body(ApiResponse.error("REFRESH_TOKEN_NOT_FOUND", "리프레시 토큰이 없습니다"));
             }
 
             AuthResponse authResponse = authService.refreshToken(refreshToken);
@@ -113,7 +124,7 @@ public class AuthController {
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("토큰 갱신 중 오류가 발생했습니다", "REFRESH_TOKEN_ERROR"));
+                    .body(ApiResponse.error("REFRESH_TOKEN_ERROR", "토큰 갱신 중 오류가 발생했습니다"));
         }
     }
 
@@ -128,7 +139,7 @@ public class AuthController {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
@@ -155,19 +166,31 @@ public class AuthController {
                 }
             }
 
+            // 티켓 정보 조회 (커플이 있는 경우에만)
+            Integer ticket = null;
+            if (coupleRoomOpt.isPresent()) {
+                try {
+                    String coupleId = coupleRoomOpt.get().getCoupleId();
+                    if (coupleId != null) {
+                        TicketInfo ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
+                        ticket = ticketInfo.ticket();
+                    }
+                } catch (Exception e) {
+                    log.warn("티켓 정보 조회 실패: {}", e.getMessage());
+                    // 티켓 정보 조회 실패해도 마이페이지는 정상 응답
+                }
+            }
+
             // 매퍼를 사용하여 MyPageResponse 생성
-            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner);
+            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner, ticket);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", myPageResponse);
-
+            MyPageApiResponse response = new MyPageApiResponse(true, myPageResponse);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("마이페이지 정보 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("마이페이지 정보 조회 중 오류가 발생했습니다", "MYPAGE_ERROR"));
+                    .body(ApiResponse.error("MYPAGE_ERROR", "마이페이지 정보 조회 중 오류가 발생했습니다"));
         }
     }
 
@@ -180,23 +203,23 @@ public class AuthController {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
             User updatedUser = userService.updateProfile(providerId, request);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "프로필이 성공적으로 수정되었습니다");
-            response.put("userId", updatedUser.getUserId());
-
+            ProfileUpdateResponse response = new ProfileUpdateResponse(
+                true,
+                "프로필이 성공적으로 수정되었습니다",
+                updatedUser.getUserId()
+            );
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("프로필 수정 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("프로필 수정 중 오류가 발생했습니다", "PROFILE_UPDATE_ERROR"));
+                    .body(ApiResponse.error("PROFILE_UPDATE_ERROR", "프로필 수정 중 오류가 발생했습니다"));
         }
     }
 
@@ -216,16 +239,16 @@ public class AuthController {
             // Refresh token 쿠키 삭제
             authService.clearRefreshTokenCookie(response);
 
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("success", true);
-            responseBody.put("message", "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요.");
-
-            return ResponseEntity.ok(responseBody);
+            LogoutResponse logoutResponse = new LogoutResponse(
+                true,
+                "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요."
+            );
+            return ResponseEntity.ok(logoutResponse);
 
         } catch (Exception e) {
             log.error("로그아웃 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("로그아웃 중 오류가 발생했습니다", "LOGOUT_ERROR"));
+                    .body(ApiResponse.error("LOGOUT_ERROR", "로그아웃 중 오류가 발생했습니다"));
         }
     }
 
@@ -239,24 +262,21 @@ public class AuthController {
             User user = userService.getUserByEmail(email);
 
             if (user == null) {
-                return ResponseEntity.ok(Map.of(
-                        "exists", false,
-                        "message", "등록되지 않은 이메일입니다"
-                ));
+                return ResponseEntity.ok(ApiResponse.success("등록되지 않은 이메일입니다", 
+                    Map.of("exists", false)));
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("exists", true);
-            response.put("status", user.getStatus().name());
-            response.put("providerType", user.getProviderType().name());
-            response.put("message", "등록된 계정입니다");
-
+            UserExistsResponse response = new UserExistsResponse(
+                true,
+                user.getStatus(),
+                user.getProviderType()
+            );
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("계정 상태 확인 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("계정 상태 확인 중 오류가 발생했습니다", "ACCOUNT_STATUS_ERROR"));
+                    .body(ApiResponse.error("ACCOUNT_STATUS_ERROR", "계정 상태 확인 중 오류가 발생했습니다"));
         }
     }
 
@@ -327,9 +347,7 @@ public class AuthController {
             );
             
             // API 명세서에 맞는 응답 형식
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("data", userInfoResponse);
+            UserInfoApiResponse response = new UserInfoApiResponse("success", userInfoResponse);
             
             log.info("유저 정보 조회 성공 - userId: {}, name: {}", userId, user.getName());
             return ResponseEntity.ok(response);
@@ -364,14 +382,15 @@ public class AuthController {
      * 사용자 상태별 리다이렉트 URL 반환
      * - 신규회원 또는 개인 온보딩 미완료: /onboarding
      * - 개인 온보딩 완료, 커플 매칭 미완료: /coupleroom
-     * - 개인 온보딩 및 커플 매칭 모두 완료: /home
+     * - 커플 매칭 완료, rock 미완료: /home/district/choose
+     * - 개인 온보딩, 커플 매칭, rock 모두 완료: /home
      */
-    @GetMapping("/redirect")
+    @GetMapping("/redirect/status")
     public ResponseEntity<?> getUserRedirectUrl(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
@@ -382,6 +401,9 @@ public class AuthController {
             
             // 커플 매칭 상태 확인
             boolean isCoupled = coupleService.isUserCoupled(providerId);
+            
+            // rock 완료 여부 확인
+            boolean isRockCompleted = userService.isRockCompleted(user);
 
             String redirectUrl;
             String status;
@@ -394,18 +416,24 @@ public class AuthController {
                 // 개인 온보딩 완료, 커플 매칭 미완료
                 redirectUrl = coupleroomRedirectUrl;
                 status = RedirectStatus.COUPLE_MATCHING_REQUIRED;
+            } else if (!isRockCompleted) {
+                // 커플 매칭 완료, rock 미완료
+                redirectUrl = rockRedirectUrl;
+                status = RedirectStatus.ROCK_REQUIRED;
             } else {
-                // 개인 온보딩 및 커플 매칭 모두 완료
+                // 개인 온보딩, 커플 매칭, rock 모두 완료
                 redirectUrl = homeRedirectUrl;
                 status = RedirectStatus.COMPLETED;
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("redirectUrl", redirectUrl);
-            response.put("status", status);
-            response.put("isOnboardingCompleted", isOnboardingCompleted);
-            response.put("isCoupled", isCoupled);
+            UserStatusResponse response = new UserStatusResponse(
+                true,
+                redirectUrl,
+                status,
+                isOnboardingCompleted,
+                isCoupled,
+                isRockCompleted
+            );
 
             log.info("사용자 리다이렉트 URL 반환 - userId: {}, status: {}, redirectUrl: {}", 
                     user.getUserId(), status, redirectUrl);
@@ -415,7 +443,53 @@ public class AuthController {
         } catch (Exception e) {
             log.error("사용자 리다이렉트 URL 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("사용자 리다이렉트 URL 조회 중 오류가 발생했습니다", "REDIRECT_URL_ERROR"));
+                    .body(ApiResponse.error("REDIRECT_URL_ERROR", "사용자 리다이렉트 URL 조회 중 오류가 발생했습니다"));
+        }
+    }
+
+
+    /**
+     * Territory-service로부터 JWT 토큰 검증 요청을 받는 API
+     * Territory-service가 GET 메서드로 호출
+     */
+    @GetMapping("/internal/api/regions/verify")
+    public ResponseEntity<?> verifyToken(
+            @RequestHeader("Authorization") String authorization) {
+        try {
+            log.info("JWT 토큰 검증 요청 수신 - Authorization: {}", 
+                    authorization != null ? "Bearer 토큰 존재" : "토큰 없음");
+            
+            // JWT 토큰 검증 로직
+            if (authorization == null || !authorization.startsWith("Bearer ")) {
+                log.warn("유효하지 않은 Authorization 헤더");
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("INVALID_TOKEN", "유효하지 않은 토큰입니다"));
+            }
+            
+            String token = authorization.substring(7);
+            
+            // AuthService의 JWT 검증 메서드 사용
+            boolean isValid = authService.verifyJwtToken(token);
+            
+            if (!isValid) {
+                log.warn("JWT 토큰 검증 실패");
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("TOKEN_VERIFICATION_FAILED", "토큰 검증에 실패했습니다"));
+            }
+            
+            log.info("JWT 토큰 검증 성공");
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "토큰 검증 성공");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("JWT 토큰 검증 실패 - error: {}", e.getMessage(), e);
+            
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("TOKEN_VERIFICATION_ERROR", "토큰 검증 중 오류가 발생했습니다"));
         }
     }
 }

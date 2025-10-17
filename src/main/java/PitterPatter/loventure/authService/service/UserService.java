@@ -8,18 +8,22 @@ import PitterPatter.loventure.authService.dto.UserDto;
 import PitterPatter.loventure.authService.dto.request.OnboardingRequest;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
+import PitterPatter.loventure.authService.mapper.UserMapper;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.security.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
     private final JWTUtil jwtUtil;
+    private final UserMapper userMapper;
 
     @Transactional
     public UserDto updateOnboardingInfo(String providerId, OnboardingRequest request) {
@@ -68,6 +72,13 @@ public class UserService {
     }
 
     /**
+     * 사용자의 rock 완료 여부 확인
+     */
+    public boolean isRockCompleted(User user) {
+        return user.getIsRockCompleted() != null && user.getIsRockCompleted();
+    }
+
+    /**
      * UserDetails에서 providerId 추출
      */
     public String extractProviderId(UserDetails userDetails) {
@@ -103,25 +114,6 @@ public class UserService {
         return token;
     }
     
-    /**
-     * HttpServletRequest에서 coupleId 추출 (JWT에서)
-     */
-    public String extractCoupleIdFromRequest(HttpServletRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("HttpServletRequest가 null입니다");
-        }
-        
-        // HttpServletRequest에서 JWT 토큰 추출
-        String token = extractTokenFromRequest(request);
-        
-        // JWT에서 coupleId 추출
-        String coupleId = jwtUtil.getCoupleIdFromToken(token);
-        if (coupleId == null) {
-            throw new IllegalArgumentException("JWT에서 coupleId를 찾을 수 없습니다");
-        }
-        
-        return coupleId;
-    }
     
     /**
      * userId로 사용자 조회 (String)
@@ -142,39 +134,18 @@ public class UserService {
     }
     
     /**
-     * 사용자 프로필 수정
+     * 사용자 프로필 수정 (MapStruct 사용)
      */
     @Transactional
     public User updateProfile(String providerId, PitterPatter.loventure.authService.dto.request.ProfileUpdateRequest request) {
         User user = validateUserByProviderId(providerId);
         
-        // null이 아닌 값만 업데이트
+        // MapStruct를 사용하여 null이 아닌 필드만 자동으로 업데이트
+        userMapper.updateUserFromProfileRequest(request, user);
+        
+        // name 필드는 특별한 처리가 필요하므로 별도 처리
         if (request.name() != null) {
             user.updateUserInfo(user.getEmail(), request.name());
-        }
-        if (request.nickname() != null) {
-            user.setNickname(request.nickname());
-        }
-        if (request.birthDate() != null) {
-            user.setBirthDate(request.birthDate());
-        }
-        if (request.gender() != null) {
-            user.setGender(request.gender());
-        }
-        if (request.alcoholPreference() != null) {
-            user.setAlcoholPreference(request.alcoholPreference());
-        }
-        if (request.activeBound() != null) {
-            user.setActiveBound(request.activeBound());
-        }
-        if (request.favoriteFoodCategories() != null) {
-            user.setFavoriteFoodCategories(request.favoriteFoodCategories());
-        }
-        if (request.dateCostPreference() != null) {
-            user.setDateCostPreference(request.dateCostPreference());
-        }
-        if (request.preferredAtmosphere() != null) {
-            user.setPreferredAtmosphere(request.preferredAtmosphere());
         }
         
         return userRepository.save(user);
@@ -209,4 +180,5 @@ public class UserService {
         
         return userRepository.save(newUser);
     }
+    
 }

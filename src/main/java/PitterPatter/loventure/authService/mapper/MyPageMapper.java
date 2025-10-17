@@ -19,7 +19,7 @@ public class MyPageMapper {
     /**
      * User와 CoupleRoom을 MyPageResponse로 변환
      */
-    public MyPageResponse toMyPageResponse(User user, Optional<CoupleRoom> coupleRoomOpt, User partner) {
+    public MyPageResponse toMyPageResponse(User user, Optional<CoupleRoom> coupleRoomOpt, User partner, Integer ticket) {
         MyPageResponse.CoupleInfo coupleInfo = null;
         
         if (coupleRoomOpt.isPresent()) {
@@ -56,7 +56,8 @@ public class MyPageMapper {
             user.getCreatedAt(),                  // LocalDateTime createdAt
             user.getUpdatedAt(),                  // LocalDateTime updatedAt
             user.getRerollCount(),                // Integer rerollCount
-            coupleInfo                            // CoupleInfo coupleInfo
+            coupleInfo,                           // CoupleInfo coupleInfo
+            ticket                                 // Integer ticket
         );
     }
 }
