@@ -92,6 +92,13 @@ public class User {
 
     private Integer rerollCount;
 
+    @Column(name = "is_rock_completed")
+    @Builder.Default
+    private Boolean isRockCompleted = false;
+
+    @Column(name = "rock_completed_at")
+    private LocalDateTime rockCompletedAt;
+
     @PrePersist
     public void createUserId() {
         if (this.userId == null) {
@@ -154,5 +161,13 @@ public class User {
     
     public void setPreferredAtmosphere(String preferredAtmosphere) {
         this.preferredAtmosphere = preferredAtmosphere;
+    }
+    
+    public void setIsRockCompleted(Boolean isRockCompleted) {
+        this.isRockCompleted = isRockCompleted;
+    }
+    
+    public void setRockCompletedAt(LocalDateTime rockCompletedAt) {
+        this.rockCompletedAt = rockCompletedAt;
     }
 }

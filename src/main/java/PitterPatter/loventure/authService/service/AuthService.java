@@ -241,4 +241,43 @@ public class AuthService {
         response.addCookie(cookie);
         log.info("Refresh token 쿠키 삭제 완료 - Domain: {}, Secure: {}", cookieDomain, cookieSecure);
     }
+
+    /**
+     * JWT 토큰 검증 (Territory-service용)
+     */
+    public boolean verifyJwtToken(String token) {
+        try {
+            if (token == null || token.trim().isEmpty()) {
+                log.warn("빈 JWT 토큰");
+                return false;
+            }
+
+            // JWT 토큰 유효성 검사
+            if (jwtUtil.isTokenExpired(token)) {
+                log.warn("만료된 JWT 토큰");
+                return false;
+            }
+
+            // 토큰에서 사용자 정보 추출
+            String providerId = jwtUtil.getUsername(token);
+            if (providerId == null || providerId.trim().isEmpty()) {
+                log.warn("유효하지 않은 JWT 토큰 - providerId 없음");
+                return false;
+            }
+
+            // 사용자 존재 및 활성 상태 확인
+            User user = userRepository.findByProviderId(providerId);
+            if (user == null || user.getStatus() != AccountStatus.ACTIVE) {
+                log.warn("유효하지 않거나 비활성 사용자: {}", providerId);
+                return false;
+            }
+
+            log.info("JWT 토큰 검증 성공 - providerId: {}", providerId);
+            return true;
+
+        } catch (Exception e) {
+            log.error("JWT 토큰 검증 중 오류 발생: {}", e.getMessage(), e);
+            return false;
+        }
+    }
 }

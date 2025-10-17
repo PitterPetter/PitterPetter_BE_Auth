@@ -62,7 +62,7 @@ public class UserController {
             // 사용자 삭제 (소프트 삭제)
             userService.deleteUser(targetUser);
 
-            DeleteUserResponse deleteResponse = userMapper.toDeleteUserResponse();
+            DeleteUserResponse deleteResponse = new DeleteUserResponse("success", "사용자가 성공적으로 삭제되었습니다");
 
             return ResponseEntity.ok(ApiResponse.success(deleteResponse));
 
