@@ -9,6 +9,7 @@ public final class RedirectStatus {
     // 사용자 상태별 리다이렉트 상태
     public static final String ONBOARDING_REQUIRED = "ONBOARDING_REQUIRED";
     public static final String COUPLE_MATCHING_REQUIRED = "COUPLE_MATCHING_REQUIRED";
+    public static final String ROCK_REQUIRED = "ROCK_REQUIRED";
     public static final String COMPLETED = "COMPLETED";
     
     // 에러 상태

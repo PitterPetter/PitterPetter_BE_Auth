@@ -68,6 +68,16 @@ public class UserService {
     }
 
     /**
+     * 사용자의 rock 완료 여부 확인
+     * TODO: 실제 rock 관련 필드가 추가되면 해당 필드를 확인하도록 수정 필요
+     */
+    public boolean isRockCompleted(User user) {
+        // 임시로 항상 false 반환 (rock 기능이 아직 구현되지 않음)
+        // 실제 구현에서는 rock 관련 필드를 확인해야 함
+        return false;
+    }
+
+    /**
      * UserDetails에서 providerId 추출
      */
     public String extractProviderId(UserDetails userDetails) {

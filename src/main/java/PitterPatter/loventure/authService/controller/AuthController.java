@@ -62,6 +62,9 @@ public class AuthController {
     @Value("${spring.jwt.redirect.home}")
     private String homeRedirectUrl;
 
+    @Value("${spring.jwt.redirect.rock:https://lovuenture.us/home/district/choose}")
+    private String rockRedirectUrl;
+
     /**
      * favicon.ico 요청 처리 (404 오류 방지)
      */
@@ -364,7 +367,8 @@ public class AuthController {
      * 사용자 상태별 리다이렉트 URL 반환
      * - 신규회원 또는 개인 온보딩 미완료: /onboarding
      * - 개인 온보딩 완료, 커플 매칭 미완료: /coupleroom
-     * - 개인 온보딩 및 커플 매칭 모두 완료: /home
+     * - 커플 매칭 완료, rock 미완료: /home/district/choose
+     * - 개인 온보딩, 커플 매칭, rock 모두 완료: /home
      */
     @GetMapping("/redirect")
     public ResponseEntity<?> getUserRedirectUrl(@AuthenticationPrincipal UserDetails userDetails) {
@@ -382,6 +386,9 @@ public class AuthController {
             
             // 커플 매칭 상태 확인
             boolean isCoupled = coupleService.isUserCoupled(providerId);
+            
+            // rock 완료 여부 확인
+            boolean isRockCompleted = userService.isRockCompleted(user);
 
             String redirectUrl;
             String status;
@@ -394,8 +401,12 @@ public class AuthController {
                 // 개인 온보딩 완료, 커플 매칭 미완료
                 redirectUrl = coupleroomRedirectUrl;
                 status = RedirectStatus.COUPLE_MATCHING_REQUIRED;
+            } else if (!isRockCompleted) {
+                // 커플 매칭 완료, rock 미완료
+                redirectUrl = rockRedirectUrl;
+                status = RedirectStatus.ROCK_REQUIRED;
             } else {
-                // 개인 온보딩 및 커플 매칭 모두 완료
+                // 개인 온보딩, 커플 매칭, rock 모두 완료
                 redirectUrl = homeRedirectUrl;
                 status = RedirectStatus.COMPLETED;
             }
@@ -406,6 +417,7 @@ public class AuthController {
             response.put("status", status);
             response.put("isOnboardingCompleted", isOnboardingCompleted);
             response.put("isCoupled", isCoupled);
+            response.put("isRockCompleted", isRockCompleted);
 
             log.info("사용자 리다이렉트 URL 반환 - userId: {}, status: {}, redirectUrl: {}", 
                     user.getUserId(), status, redirectUrl);

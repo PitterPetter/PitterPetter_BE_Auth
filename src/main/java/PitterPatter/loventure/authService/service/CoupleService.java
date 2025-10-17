@@ -443,7 +443,7 @@ public class CoupleService {
      * - API 요청 시마다 1씩 감소
      */
     @Transactional
-    private void manageRerollCount(CoupleRoom coupleRoom) {
+    protected void manageRerollCount(CoupleRoom coupleRoom) {
         LocalDate today = LocalDate.now();
         LocalDate lastResetDate = coupleRoom.getLastRerollResetDate();
         

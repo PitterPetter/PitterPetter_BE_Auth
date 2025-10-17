@@ -179,6 +179,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             // 커플 매칭 상태 확인
             boolean isCoupled = coupleService.isUserCoupled(providerId);
             
+            // rock 완료 여부 확인
+            boolean isRockCompleted = userService.isRockCompleted(user);
+            
             // 사용자 상태 결정
             String userStatus;
             if (!isOnboardingCompleted) {
@@ -187,6 +190,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             } else if (!isCoupled) {
                 userStatus = "COUPLE_MATCHING_REQUIRED";
                 log.info("사용자 상태: 커플 매칭 필요 - providerId={}", providerId);
+            } else if (!isRockCompleted) {
+                userStatus = "ROCK_REQUIRED";
+                log.info("사용자 상태: rock 필요 - providerId={}", providerId);
             } else {
                 userStatus = "COMPLETED";
                 log.info("사용자 상태: 완료 - providerId={}", providerId);
@@ -200,6 +206,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             url.append("&user_status=").append(userStatus);
             url.append("&is_onboarding_completed=").append(isOnboardingCompleted);
             url.append("&is_coupled=").append(isCoupled);
+            url.append("&is_rock_completed=").append(isRockCompleted);
             
             return url.toString();
             
