@@ -36,7 +36,7 @@ public class TerritoryServiceClient {
             
             HttpEntity<RockCompletionAckRequest> entity = new HttpEntity<>(request, headers);
             
-            String url = territoryServiceUrl + "/internal/rock-status/ack";
+            String url = territoryServiceUrl + "/internal/api/regions/verify/ack";
             
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             

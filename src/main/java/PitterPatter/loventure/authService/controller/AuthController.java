@@ -387,7 +387,7 @@ public class AuthController {
      * - 커플 매칭 완료, rock 미완료: /home/district/choose
      * - 개인 온보딩, 커플 매칭, rock 모두 완료: /home
      */
-    @GetMapping("/redirect")
+    @GetMapping("/redirect/status")
     public ResponseEntity<?> getUserRedirectUrl(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             if (userDetails == null) {
@@ -453,7 +453,7 @@ public class AuthController {
     /**
      * Territory-service로부터 region 상태 완료 요청을 받는 API
      */
-    @PostMapping("/api/region/status")
+    @PostMapping("/internal/api/regions/verify")
     public ResponseEntity<?> completeRockStatus(
             @RequestBody RockStatusCompleteRequest request) {
         try {
