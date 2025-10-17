@@ -142,6 +142,44 @@ public class TicketService {
 
 
     /**
+     * 지역락 해제 시 티켓 차감 (2개 → 0개)
+     */
+    @Transactional
+    public void deductTicketsForRockRelease(String coupleId) {
+        try {
+            log.info("🎫 지역락 해제를 위한 티켓 차감 시작 - coupleId: {}", coupleId);
+            
+            Couple couple = findCoupleById(coupleId);
+            
+            // 현재 티켓 수 확인
+            int currentTickets = couple.getTicketCount();
+            log.info("현재 티켓 수: {}개", currentTickets);
+            
+            // 티켓을 0개로 차감
+            couple.setTicketCount(0);
+            couple.setLastSyncedAt(LocalDateTime.now());
+            coupleRepository.save(couple);
+            
+            // Redis 캐시 업데이트
+            TicketInfo updatedTicketInfo = new TicketInfo(
+                coupleId,
+                0,
+                couple.getIsTodayTicket(),
+                couple.getLastSyncedAt()
+            );
+            ticketCacheRepository.save(coupleId, updatedTicketInfo);
+            
+            log.info("✅ 지역락 해제 티켓 차감 완료 - coupleId: {}, 차감 전: {}개, 차감 후: 0개", 
+                    coupleId, currentTickets);
+            
+        } catch (Exception e) {
+            log.error("❌ 지역락 해제 티켓 차감 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            throw new RuntimeException("지역락 해제 티켓 차감 실패", e);
+        }
+    }
+
+    /**
      * Couple 엔티티를 TicketInfo로 변환
      */
     private TicketInfo convertToTicketInfo(Couple couple) {

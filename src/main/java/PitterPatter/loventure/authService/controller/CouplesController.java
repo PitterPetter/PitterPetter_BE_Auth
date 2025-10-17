@@ -131,7 +131,7 @@ public class CouplesController {
             // JWT에서 coupleId 추출 시도
             String coupleId;
             try {
-                coupleId = userService.extractCoupleIdFromRequest(request);
+                coupleId = coupleService.getCoupleIdFromRequest(request);
                 log.info("JWT에서 추출된 coupleId: {}", coupleId);
             } catch (Exception e) {
                 log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
@@ -171,7 +171,7 @@ public class CouplesController {
             // JWT에서 coupleId 추출 시도
             String coupleId;
             try {
-                coupleId = userService.extractCoupleIdFromRequest(request);
+                coupleId = coupleService.getCoupleIdFromRequest(request);
                 log.info("JWT에서 추출된 coupleId: {}", coupleId);
             } catch (Exception e) {
                 log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
@@ -213,7 +213,7 @@ public class CouplesController {
             // JWT에서 coupleId 추출 시도
             String jwtCoupleId;
             try {
-                jwtCoupleId = userService.extractCoupleIdFromRequest(request);
+                jwtCoupleId = coupleService.getCoupleIdFromRequest(request);
                 log.info("JWT에서 추출된 coupleId: {}", jwtCoupleId);
             } catch (Exception e) {
                 log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
@@ -238,11 +238,11 @@ public class CouplesController {
             
             ApiResponse<RecommendationDataResponse> response = coupleService.getRecommendationData(coupleId);
             
-            if ("success".equals(response.getStatus())) {
+            if ("success".equals(response.status())) {
                 log.info("커플 추천 데이터 조회 성공 - coupleId: {}", coupleId);
                 return ResponseEntity.ok(response);
             } else {
-                log.warn("커플 추천 데이터 조회 실패 - coupleId: {}, error: {}", coupleId, response.getMessage());
+                log.warn("커플 추천 데이터 조회 실패 - coupleId: {}, error: {}", coupleId, response.message());
                 return ResponseEntity.badRequest().body(response);
             }
             

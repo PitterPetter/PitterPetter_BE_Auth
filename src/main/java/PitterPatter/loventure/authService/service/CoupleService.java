@@ -2,6 +2,7 @@ package PitterPatter.loventure.authService.service;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
 import PitterPatter.loventure.authService.repository.DateCostPreference;
 import PitterPatter.loventure.authService.repository.User;
+import PitterPatter.loventure.authService.repository.UserRepository;
 import PitterPatter.loventure.authService.security.JWTUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,8 @@ public class CoupleService {
     private final UserService userService;
     private final CoupleMapper coupleMapper;
     private final JWTUtil jwtUtil;
+    private final UserRepository userRepository;
+    private final TicketService ticketService;
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
@@ -110,7 +114,7 @@ public class CoupleService {
             CoupleMatchResponse response = coupleMapper.toCoupleMatchResponse(coupleRoom, user, newJwt);
 
             log.info("커플 매칭 완료 - coupleId: {}, partnerUserId: {}, 새 JWT 발급 완료", coupleId, user.getProviderId());
-            return ApiResponse.success(response, "커플 매칭 완료");
+            return ApiResponse.success("커플 매칭 완료", response);
             
         } catch (BusinessException e) {
             return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
@@ -168,7 +172,7 @@ public class CoupleService {
         coupleRoom.setPartnerUserId(null);
         coupleRoomRepository.save(coupleRoom);
         log.info("커플 매칭 취소 완료 - coupleId: {}, 상태: PENDING으로 변경", coupleId);
-        return ApiResponse.success(null, "커플 매칭이 취소되었습니다. 다시 매칭할 수 있습니다.");
+        return ApiResponse.success("커플 매칭이 취소되었습니다. 다시 매칭할 수 있습니다.", null);
     }
 
 
@@ -328,7 +332,7 @@ public class CoupleService {
             log.info("커플 정보 변경 완료 - coupleId: {}, coupleHomeName: {}, datingStartDate: {}", 
                     coupleRoom.getCoupleId(), coupleRoom.getCoupleHomeName(), coupleRoom.getDatingStartDate());
             
-            return ApiResponse.success(null, "커플 정보가 성공적으로 변경되었습니다.");
+            return ApiResponse.success("커플 정보가 성공적으로 변경되었습니다.", null);
             
         } catch (BusinessException e) {
             return ApiResponse.error(e.getErrorCode().getCode(), e.getMessage());
@@ -482,5 +486,68 @@ public class CoupleService {
             0  // diaryCount - CoupleRoom에 없으므로 기본값
         );
     }
+
+    /**
+     * HttpServletRequest에서 coupleId 추출 (JWT에서)
+     */
+    public String getCoupleIdFromRequest(jakarta.servlet.http.HttpServletRequest request) {
+        String token = extractTokenFromRequest(request);
+        
+        // JWT에서 coupleId 추출
+        String coupleId = jwtUtil.getCoupleIdFromToken(token);
+        if (coupleId == null) {
+            throw new IllegalArgumentException("JWT에서 coupleId를 찾을 수 없습니다");
+        }
+        
+        return coupleId;
+    }
     
+    /**
+     * HttpServletRequest에서 Authorization 헤더의 Bearer 토큰 추출
+     */
+    private String extractTokenFromRequest(jakarta.servlet.http.HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            return authorization.substring(7);
+        }
+        throw new IllegalArgumentException("Authorization 헤더에서 Bearer 토큰을 찾을 수 없습니다");
+    }
+
+    /**
+     * 커플룸의 두 사용자 모두 rock 상태를 완료로 변경하고 티켓 차감
+     */
+    @Transactional
+    public void completeRockStatusForCouple(String coupleId) {
+        CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+        
+        // 1. 두 사용자 모두 상태 변경
+        completeRockStatus(coupleRoom.getCreatorUserId());
+        if (coupleRoom.getPartnerUserId() != null) {
+            completeRockStatus(coupleRoom.getPartnerUserId());
+        }
+        
+        // 2. 커플룸 상태 업데이트
+        coupleRoom.setIsRockCompleted(true);
+        coupleRoom.setRockCompletedAt(LocalDateTime.now());
+        coupleRoomRepository.save(coupleRoom);
+        
+        // 3. 지역락 해제를 위한 티켓 차감 (2개 → 0개)
+        ticketService.deductTicketsForRockRelease(coupleId);
+        
+        log.info("🎫 지역락 해제 완료 - coupleId: {}, 사용자 상태 변경 및 티켓 차감 완료", coupleId);
+    }
+
+    /**
+     * 사용자의 rock 상태를 완료로 변경
+     */
+    @Transactional
+    public void completeRockStatus(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+        user.setIsRockCompleted(true);
+        user.setRockCompletedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
 }

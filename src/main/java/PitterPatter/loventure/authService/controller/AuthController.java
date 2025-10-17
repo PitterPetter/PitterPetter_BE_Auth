@@ -1,11 +1,13 @@
 package PitterPatter.loventure.authService.controller;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,15 +20,24 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
+import PitterPatter.loventure.authService.dto.request.RockStatusCompleteRequest;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
-import PitterPatter.loventure.authService.dto.response.ErrorResponse;
+import PitterPatter.loventure.authService.dto.response.LogoutResponse;
+import PitterPatter.loventure.authService.dto.response.MyPageApiResponse;
 import PitterPatter.loventure.authService.dto.response.MyPageResponse;
+import PitterPatter.loventure.authService.dto.response.ProfileUpdateResponse;
+import PitterPatter.loventure.authService.dto.response.RockStatusCompleteResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
+import PitterPatter.loventure.authService.dto.response.StatusUpdateMessage;
+import PitterPatter.loventure.authService.dto.response.UserExistsResponse;
+import PitterPatter.loventure.authService.dto.response.UserInfoApiResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
+import PitterPatter.loventure.authService.dto.response.UserStatusResponse;
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.MyPageMapper;
@@ -34,6 +45,8 @@ import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.service.AuthService;
 import PitterPatter.loventure.authService.service.CoupleService;
+import PitterPatter.loventure.authService.service.SseService;
+import PitterPatter.loventure.authService.service.TerritoryServiceClient;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +65,8 @@ public class AuthController {
     private final UserService userService;
     private final CoupleService coupleService;
     private final MyPageMapper myPageMapper;
+    private final SseService sseService;
+    private final TerritoryServiceClient territoryServiceClient;
 
     @Value("${spring.jwt.redirect.onboarding}")
     private String onboardingRedirectUrl;
@@ -98,7 +113,7 @@ public class AuthController {
             if (refreshToken == null) {
                 log.warn("리프레시 토큰이 없습니다");
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("리프레시 토큰이 없습니다", "REFRESH_TOKEN_NOT_FOUND"));
+                        .body(ApiResponse.error("REFRESH_TOKEN_NOT_FOUND", "리프레시 토큰이 없습니다"));
             }
 
             AuthResponse authResponse = authService.refreshToken(refreshToken);
@@ -116,7 +131,7 @@ public class AuthController {
         } catch (Exception e) {
             log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("토큰 갱신 중 오류가 발생했습니다", "REFRESH_TOKEN_ERROR"));
+                    .body(ApiResponse.error("REFRESH_TOKEN_ERROR", "토큰 갱신 중 오류가 발생했습니다"));
         }
     }
 
@@ -131,7 +146,7 @@ public class AuthController {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
@@ -161,16 +176,13 @@ public class AuthController {
             // 매퍼를 사용하여 MyPageResponse 생성
             MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", myPageResponse);
-
+            MyPageApiResponse response = new MyPageApiResponse(true, myPageResponse);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("마이페이지 정보 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("마이페이지 정보 조회 중 오류가 발생했습니다", "MYPAGE_ERROR"));
+                    .body(ApiResponse.error("MYPAGE_ERROR", "마이페이지 정보 조회 중 오류가 발생했습니다"));
         }
     }
 
@@ -183,23 +195,23 @@ public class AuthController {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
             User updatedUser = userService.updateProfile(providerId, request);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "프로필이 성공적으로 수정되었습니다");
-            response.put("userId", updatedUser.getUserId());
-
+            ProfileUpdateResponse response = new ProfileUpdateResponse(
+                true,
+                "프로필이 성공적으로 수정되었습니다",
+                updatedUser.getUserId()
+            );
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("프로필 수정 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("프로필 수정 중 오류가 발생했습니다", "PROFILE_UPDATE_ERROR"));
+                    .body(ApiResponse.error("PROFILE_UPDATE_ERROR", "프로필 수정 중 오류가 발생했습니다"));
         }
     }
 
@@ -219,16 +231,16 @@ public class AuthController {
             // Refresh token 쿠키 삭제
             authService.clearRefreshTokenCookie(response);
 
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("success", true);
-            responseBody.put("message", "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요.");
-
-            return ResponseEntity.ok(responseBody);
+            LogoutResponse logoutResponse = new LogoutResponse(
+                true,
+                "로그아웃되었습니다. 클라이언트에서 토큰을 삭제해주세요."
+            );
+            return ResponseEntity.ok(logoutResponse);
 
         } catch (Exception e) {
             log.error("로그아웃 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("로그아웃 중 오류가 발생했습니다", "LOGOUT_ERROR"));
+                    .body(ApiResponse.error("LOGOUT_ERROR", "로그아웃 중 오류가 발생했습니다"));
         }
     }
 
@@ -242,24 +254,21 @@ public class AuthController {
             User user = userService.getUserByEmail(email);
 
             if (user == null) {
-                return ResponseEntity.ok(Map.of(
-                        "exists", false,
-                        "message", "등록되지 않은 이메일입니다"
-                ));
+                return ResponseEntity.ok(ApiResponse.success("등록되지 않은 이메일입니다", 
+                    Map.of("exists", false)));
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("exists", true);
-            response.put("status", user.getStatus().name());
-            response.put("providerType", user.getProviderType().name());
-            response.put("message", "등록된 계정입니다");
-
+            UserExistsResponse response = new UserExistsResponse(
+                true,
+                user.getStatus(),
+                user.getProviderType()
+            );
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("계정 상태 확인 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("계정 상태 확인 중 오류가 발생했습니다", "ACCOUNT_STATUS_ERROR"));
+                    .body(ApiResponse.error("ACCOUNT_STATUS_ERROR", "계정 상태 확인 중 오류가 발생했습니다"));
         }
     }
 
@@ -330,9 +339,7 @@ public class AuthController {
             );
             
             // API 명세서에 맞는 응답 형식
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("data", userInfoResponse);
+            UserInfoApiResponse response = new UserInfoApiResponse("success", userInfoResponse);
             
             log.info("유저 정보 조회 성공 - userId: {}, name: {}", userId, user.getName());
             return ResponseEntity.ok(response);
@@ -375,7 +382,7 @@ public class AuthController {
         try {
             if (userDetails == null) {
                 return ResponseEntity.badRequest()
-                        .body(ErrorResponse.of("인증된 사용자 정보를 찾을 수 없습니다", "UNAUTHORIZED"));
+                        .body(ApiResponse.error("UNAUTHORIZED", "인증된 사용자 정보를 찾을 수 없습니다"));
             }
 
             String providerId = userDetails.getUsername();
@@ -411,13 +418,14 @@ public class AuthController {
                 status = RedirectStatus.COMPLETED;
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("redirectUrl", redirectUrl);
-            response.put("status", status);
-            response.put("isOnboardingCompleted", isOnboardingCompleted);
-            response.put("isCoupled", isCoupled);
-            response.put("isRockCompleted", isRockCompleted);
+            UserStatusResponse response = new UserStatusResponse(
+                true,
+                redirectUrl,
+                status,
+                isOnboardingCompleted,
+                isCoupled,
+                isRockCompleted
+            );
 
             log.info("사용자 리다이렉트 URL 반환 - userId: {}, status: {}, redirectUrl: {}", 
                     user.getUserId(), status, redirectUrl);
@@ -427,7 +435,82 @@ public class AuthController {
         } catch (Exception e) {
             log.error("사용자 리다이렉트 URL 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(ErrorResponse.of("사용자 리다이렉트 URL 조회 중 오류가 발생했습니다", "REDIRECT_URL_ERROR"));
+                    .body(ApiResponse.error("REDIRECT_URL_ERROR", "사용자 리다이렉트 URL 조회 중 오류가 발생했습니다"));
+        }
+    }
+
+    /**
+     * SSE를 통한 실시간 사용자 상태 스트림
+     */
+    @GetMapping(value = "/status-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamUserStatus(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new IllegalArgumentException("인증된 사용자 정보를 찾을 수 없습니다");
+        }
+        
+        String userId = userDetails.getUsername();
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // 무제한 연결
+        
+        // SSE 연결 관리
+        sseService.addConnection(userId, emitter);
+        
+        log.info("SSE 연결 생성 - userId: {}", userId);
+        
+        return emitter;
+    }
+
+    /**
+     * Territory-service로부터 rock 상태 완료 요청을 받는 API
+     */
+    @PostMapping("/internal/rock-status/complete")
+    public ResponseEntity<?> completeRockStatus(
+            @RequestBody RockStatusCompleteRequest request) {
+        try {
+            log.info("Rock 상태 완료 요청 수신 - coupleId: {}, userId: {}", 
+                    request.coupleId(), request.userId());
+            
+            // 1. 커플룸 기반으로 상태 변경 (대기 중인 사용자 포함)
+            coupleService.completeRockStatusForCouple(request.coupleId());
+            
+            // 2. SSE로 실시간 상태 업데이트 전송
+            StatusUpdateMessage statusData = new StatusUpdateMessage(
+                "COMPLETED",
+                "/home",
+                true,
+                LocalDateTime.now()
+            );
+            sseService.sendStatusUpdateToCouple(request.coupleId(), statusData);
+            
+            // 3. Territory-service로 ACK 전송
+            territoryServiceClient.sendRockCompletionAck(
+                request.coupleId(), 
+                request.userId()
+            );
+            
+            RockStatusCompleteResponse response = new RockStatusCompleteResponse(
+                true,
+                "Rock 상태 변경 완료",
+                request.coupleId(),
+                request.userId()
+            );
+            
+            log.info("Rock 상태 변경 완료 - coupleId: {}, userId: {}", 
+                    request.coupleId(), request.userId());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Rock 상태 변경 실패 - coupleId: {}, userId: {}, error: {}", 
+                    request.coupleId(), request.userId(), e.getMessage(), e);
+            
+            RockStatusCompleteResponse errorResponse = new RockStatusCompleteResponse(
+                false,
+                "Rock 상태 변경 실패: " + e.getMessage(),
+                request.coupleId(),
+                request.userId()
+            );
+            
+            return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
 }
