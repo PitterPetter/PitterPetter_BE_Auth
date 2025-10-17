@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
 import PitterPatter.loventure.authService.dto.TicketInfo;
-import PitterPatter.loventure.authService.dto.request.RockStatusCompleteRequest;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
 import PitterPatter.loventure.authService.dto.response.AuthResponse;
@@ -29,7 +28,6 @@ import PitterPatter.loventure.authService.dto.response.LogoutResponse;
 import PitterPatter.loventure.authService.dto.response.MyPageApiResponse;
 import PitterPatter.loventure.authService.dto.response.MyPageResponse;
 import PitterPatter.loventure.authService.dto.response.ProfileUpdateResponse;
-import PitterPatter.loventure.authService.dto.response.RockStatusCompleteResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
 import PitterPatter.loventure.authService.dto.response.UserExistsResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoApiResponse;
