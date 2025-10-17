@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.request.RockStatusCompleteRequest;
 import PitterPatter.loventure.authService.dto.request.SignupRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
@@ -167,8 +168,22 @@ public class AuthController {
                 }
             }
 
+            // 티켓 정보 조회 (커플이 있는 경우에만)
+            TicketInfo ticketInfo = null;
+            if (coupleRoomOpt.isPresent()) {
+                try {
+                    String coupleId = coupleRoomOpt.get().getCoupleId();
+                    if (coupleId != null) {
+                        ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
+                    }
+                } catch (Exception e) {
+                    log.warn("티켓 정보 조회 실패: {}", e.getMessage());
+                    // 티켓 정보 조회 실패해도 마이페이지는 정상 응답
+                }
+            }
+
             // 매퍼를 사용하여 MyPageResponse 생성
-            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner);
+            MyPageResponse myPageResponse = myPageMapper.toMyPageResponse(user, coupleRoomOpt, partner, ticketInfo);
 
             MyPageApiResponse response = new MyPageApiResponse(true, myPageResponse);
             return ResponseEntity.ok(response);
@@ -435,9 +450,9 @@ public class AuthController {
 
 
     /**
-     * Territory-service로부터 rock 상태 완료 요청을 받는 API
+     * Territory-service로부터 region 상태 완료 요청을 받는 API
      */
-    @PostMapping("/internal/rock-status/complete")
+    @PostMapping("/api/region/status")
     public ResponseEntity<?> completeRockStatus(
             @RequestBody RockStatusCompleteRequest request) {
         try {

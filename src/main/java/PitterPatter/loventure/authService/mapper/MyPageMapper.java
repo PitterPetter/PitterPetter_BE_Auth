@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.response.MyPageResponse;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
@@ -19,7 +20,7 @@ public class MyPageMapper {
     /**
      * User와 CoupleRoom을 MyPageResponse로 변환
      */
-    public MyPageResponse toMyPageResponse(User user, Optional<CoupleRoom> coupleRoomOpt, User partner) {
+    public MyPageResponse toMyPageResponse(User user, Optional<CoupleRoom> coupleRoomOpt, User partner, TicketInfo ticketInfo) {
         MyPageResponse.CoupleInfo coupleInfo = null;
         
         if (coupleRoomOpt.isPresent()) {
@@ -56,7 +57,8 @@ public class MyPageMapper {
             user.getCreatedAt(),                  // LocalDateTime createdAt
             user.getUpdatedAt(),                  // LocalDateTime updatedAt
             user.getRerollCount(),                // Integer rerollCount
-            coupleInfo                            // CoupleInfo coupleInfo
+            coupleInfo,                           // CoupleInfo coupleInfo
+            ticketInfo                            // TicketInfo ticketInfo
         );
     }
 }
