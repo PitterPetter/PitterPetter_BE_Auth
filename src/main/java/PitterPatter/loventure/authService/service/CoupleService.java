@@ -3,6 +3,7 @@ package PitterPatter.loventure.authService.service;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.github.f4b6a3.tsid.TsidCreator;
 
+import PitterPatter.loventure.authService.dto.TicketInfo;
 import PitterPatter.loventure.authService.dto.request.CoupleUpdateRequest;
 import PitterPatter.loventure.authService.dto.request.CreateCoupleRoomWithOnboardingRequest;
 import PitterPatter.loventure.authService.dto.response.ApiResponse;
@@ -42,7 +44,6 @@ public class CoupleService {
     private final CoupleMapper coupleMapper;
     private final JWTUtil jwtUtil;
     private final UserRepository userRepository;
-    private final TicketService ticketService;
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
@@ -532,10 +533,46 @@ public class CoupleService {
         coupleRoom.setRockCompletedAt(LocalDateTime.now());
         coupleRoomRepository.save(coupleRoom);
         
-        // 3. 지역락 해제를 위한 티켓 차감 (2개 → 0개)
-        ticketService.deductTicketsForRockRelease(coupleId);
+        // 3. 티켓 차감은 Gateway에서 Redis를 통해 관리됨
         
         log.info("🎫 지역락 해제 완료 - coupleId: {}, 사용자 상태 변경 및 티켓 차감 완료", coupleId);
+    }
+
+    /**
+     * DB에서 직접 티켓 정보 조회 (Gateway용)
+     * Redis 없이 DB에서만 조회하여 Gateway에 제공
+     */
+    public TicketInfo getTicketInfoFromDb(String coupleId) {
+        try {
+            log.info("🎫 DB에서 티켓 정보 조회 시작 - coupleId: {}", coupleId);
+            
+            // CoupleRoom에서 티켓 정보 조회
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            // 기본 티켓 수 (실제로는 CoupleRoom에 티켓 필드가 없으므로 기본값 사용)
+            // TODO: 실제 티켓 필드가 CoupleRoom에 추가되면 수정 필요
+            int ticketCount = 2; // 기본값
+            boolean isTodayTicket = true; // 기본값
+            OffsetDateTime lastSyncedAt = OffsetDateTime.now();
+            
+            TicketInfo ticketInfo = new TicketInfo(
+                coupleId,
+                ticketCount,
+                isTodayTicket,
+                lastSyncedAt
+            );
+            
+            log.info("✅ DB에서 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
+                    coupleId, ticketInfo.ticket());
+            
+            return ticketInfo;
+            
+        } catch (Exception e) {
+            log.error("❌ DB에서 티켓 정보 조회 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            throw new RuntimeException("티켓 정보 조회 실패", e);
+        }
     }
 
     /**

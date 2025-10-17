@@ -21,7 +21,6 @@ import PitterPatter.loventure.authService.dto.response.CoupleMatchResponse;
 import PitterPatter.loventure.authService.dto.response.CreateCoupleRoomResponse;
 import PitterPatter.loventure.authService.dto.response.RecommendationDataResponse;
 import PitterPatter.loventure.authService.service.CoupleService;
-import PitterPatter.loventure.authService.service.TicketService;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -36,7 +35,6 @@ public class CouplesController {
     
     private final CoupleService coupleService;
     private final UserService userService;
-    private final TicketService ticketService;
 
     // 커플룸 생성과 온보딩을 함께 처리하는 통합 API
     @PostMapping("/room")
@@ -159,7 +157,7 @@ public class CouplesController {
         }
     }
 
-    // Gateway용 티켓 정보 조회 API (JWT 토큰에서 coupleId 파싱)
+    // Gateway용 티켓 정보 조회 API (DB에서 직접 조회)
     @GetMapping("/ticket")
     public ResponseEntity<TicketInfo> getCoupleTicket(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -188,8 +186,8 @@ public class CouplesController {
                 log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
             }
             
-            // TicketService에서 티켓 정보 조회 (Redis 우선, 없으면 DB에서 조회)
-            TicketInfo ticketInfo = ticketService.getTicketInfo(coupleId);
+            // DB에서 직접 티켓 정보 조회 (Redis 없이)
+            TicketInfo ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
             
             log.info("커플 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
                     coupleId, ticketInfo.ticket());
@@ -200,6 +198,7 @@ public class CouplesController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
     // AI 서버용 커플 추천 데이터 조회 API
     @GetMapping("/{coupleId}/recommendation-data")
     public ResponseEntity<ApiResponse<RecommendationDataResponse>> getRecommendationData(

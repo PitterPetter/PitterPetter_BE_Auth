@@ -21,7 +21,7 @@ public class TerritoryServiceClient {
     
     private final RestTemplate restTemplate;
     
-    @Value("${spring.msa.services.territory-service.url:http://localhost:8083}")
+    @Value("${territory.service.url:http://territory-service:8083}")
     private String territoryServiceUrl;
     
     /**

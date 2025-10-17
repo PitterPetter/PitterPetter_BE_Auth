@@ -1,13 +1,11 @@
 package PitterPatter.loventure.authService.controller;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import PitterPatter.loventure.authService.constants.RedirectStatus;
 import PitterPatter.loventure.authService.dto.request.RockStatusCompleteRequest;
@@ -33,7 +30,6 @@ import PitterPatter.loventure.authService.dto.response.MyPageResponse;
 import PitterPatter.loventure.authService.dto.response.ProfileUpdateResponse;
 import PitterPatter.loventure.authService.dto.response.RockStatusCompleteResponse;
 import PitterPatter.loventure.authService.dto.response.SignupResponse;
-import PitterPatter.loventure.authService.dto.response.StatusUpdateMessage;
 import PitterPatter.loventure.authService.dto.response.UserExistsResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoApiResponse;
 import PitterPatter.loventure.authService.dto.response.UserInfoResponse;
@@ -45,7 +41,6 @@ import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.User;
 import PitterPatter.loventure.authService.service.AuthService;
 import PitterPatter.loventure.authService.service.CoupleService;
-import PitterPatter.loventure.authService.service.SseService;
 import PitterPatter.loventure.authService.service.TerritoryServiceClient;
 import PitterPatter.loventure.authService.service.UserService;
 import jakarta.servlet.http.Cookie;
@@ -65,7 +60,6 @@ public class AuthController {
     private final UserService userService;
     private final CoupleService coupleService;
     private final MyPageMapper myPageMapper;
-    private final SseService sseService;
     private final TerritoryServiceClient territoryServiceClient;
 
     @Value("${spring.jwt.redirect.onboarding}")
@@ -439,25 +433,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * SSE를 통한 실시간 사용자 상태 스트림
-     */
-    @GetMapping(value = "/status-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamUserStatus(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            throw new IllegalArgumentException("인증된 사용자 정보를 찾을 수 없습니다");
-        }
-        
-        String userId = userDetails.getUsername();
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // 무제한 연결
-        
-        // SSE 연결 관리
-        sseService.addConnection(userId, emitter);
-        
-        log.info("SSE 연결 생성 - userId: {}", userId);
-        
-        return emitter;
-    }
 
     /**
      * Territory-service로부터 rock 상태 완료 요청을 받는 API
@@ -472,16 +447,7 @@ public class AuthController {
             // 1. 커플룸 기반으로 상태 변경 (대기 중인 사용자 포함)
             coupleService.completeRockStatusForCouple(request.coupleId());
             
-            // 2. SSE로 실시간 상태 업데이트 전송
-            StatusUpdateMessage statusData = new StatusUpdateMessage(
-                "COMPLETED",
-                "/home",
-                true,
-                LocalDateTime.now()
-            );
-            sseService.sendStatusUpdateToCouple(request.coupleId(), statusData);
-            
-            // 3. Territory-service로 ACK 전송
+            // 2. Territory-service로 ACK 전송
             territoryServiceClient.sendRockCompletionAck(
                 request.coupleId(), 
                 request.userId()
