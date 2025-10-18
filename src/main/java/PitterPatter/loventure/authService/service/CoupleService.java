@@ -609,6 +609,44 @@ public class CoupleService {
     }
 
     /**
+     * 티켓 차감 및 사용자 상태 변경 (init unlock용)
+     * Territory Service에서 초기 해금 시 호출
+     */
+    @Transactional
+    public boolean consumeTicketAndCompleteRock(String coupleId) {
+        try {
+            log.info("🎫 티켓 차감 및 Rock 완료 처리 시작 - coupleId: {}", coupleId);
+            
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            
+            if (currentTicketCount <= 0) {
+                log.warn("❌ 티켓 부족 - coupleId: {}, 현재 티켓: {}", coupleId, currentTicketCount);
+                return false;
+            }
+            
+            // 1. 티켓 차감
+            coupleRoom.setTicketCount(currentTicketCount - 1);
+            coupleRoomRepository.save(coupleRoom);
+            
+            // 2. 사용자 상태 변경 (Rock 완료)
+            completeRockStatusForCouple(coupleId);
+            
+            log.info("✅ 티켓 차감 및 Rock 완료 처리 성공 - coupleId: {}, 티켓: {} → {}", 
+                    coupleId, currentTicketCount, currentTicketCount - 1);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 차감 및 Rock 완료 처리 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
      * 사용자의 rock 상태를 완료로 변경
      */
     @Transactional
