@@ -105,7 +105,7 @@ public class SecurityConfig {
                                 "/api/auth/swagger-ui/**", "/api/auth/v3/api-docs/**", "/api/auth/swagger-ui.html",
                                 "/api/auth/refresh", "/api/auth/redirect", "/favicon.ico",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/**",
-                                "/internal/user/**").permitAll() // internal/user/ 경로 허용
+                                "/internal/user/**", "/internal/api/regions/**").permitAll() // internal 경로들 허용
                         .requestMatchers("OPTIONS", "/**").permitAll() // CORS preflight 요청 허용
                         .anyRequest().authenticated()); // 나머지 경로는 인증 필요
 
