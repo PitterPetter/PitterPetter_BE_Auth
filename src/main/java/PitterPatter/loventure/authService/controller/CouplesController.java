@@ -251,6 +251,51 @@ public class CouplesController {
                     .body(ApiResponse.error("50001", "알 수 없는 서버 에러가 발생했습니다. (" + e.getMessage() + ")"));
         }
     }
+
+    // 티켓 정보 조회 (Gateway용)
+    @GetMapping("/{coupleId}/ticket")
+    public ResponseEntity<TicketInfo> getTicketInfo(@PathVariable String coupleId) {
+        try {
+            log.info("🎫 티켓 정보 조회 요청 - coupleId: {}", coupleId);
+            
+            TicketInfo ticketInfo = coupleService.getTicketInfoFromDb(coupleId);
+            
+            log.info("✅ 티켓 정보 조회 성공 - coupleId: {}, ticket: {}", 
+                    coupleId, ticketInfo.ticket());
+            
+            return ResponseEntity.ok(ticketInfo);
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 정보 조회 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // 티켓 차감 (Gateway용)
+    @PostMapping("/{coupleId}/ticket/consume")
+    public ResponseEntity<ApiResponse<Boolean>> consumeTicket(@PathVariable String coupleId) {
+        try {
+            log.info("🎫 티켓 차감 요청 - coupleId: {}", coupleId);
+            
+            boolean success = coupleService.consumeTicket(coupleId);
+            
+            if (success) {
+                log.info("✅ 티켓 차감 성공 - coupleId: {}", coupleId);
+                return ResponseEntity.ok(ApiResponse.success("success", true));
+            } else {
+                log.warn("❌ 티켓 차감 실패 - 티켓 부족 - coupleId: {}", coupleId);
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("40002", "티켓이 부족합니다"));
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 차감 API 오류 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("50001", "티켓 차감 중 오류가 발생했습니다"));
+        }
+    }
 }
 
 
