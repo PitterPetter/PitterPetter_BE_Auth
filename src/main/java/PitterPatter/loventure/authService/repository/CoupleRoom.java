@@ -63,6 +63,10 @@ public class CoupleRoom {
     @Column(name = "rock_completed_at")
     private LocalDateTime rockCompletedAt;
     
+    @Column(name = "ticket_count")
+    @Builder.Default
+    private Integer ticketCount = 2; // 기본값 2
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

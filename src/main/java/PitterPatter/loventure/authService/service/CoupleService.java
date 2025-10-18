@@ -550,10 +550,9 @@ public class CoupleService {
             CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
                     .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
             
-            // 기본 티켓 수 (실제로는 CoupleRoom에 티켓 필드가 없으므로 기본값 사용)
-            // TODO: 실제 티켓 필드가 CoupleRoom에 추가되면 수정 필요
-            int ticketCount = 2; // 기본값
-            boolean isTodayTicket = true; // 기본값
+            // 실제 DB에서 티켓 수 조회
+            int ticketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            boolean isTodayTicket = true; // 기본값 (일일 티켓 로직은 추후 구현)
             OffsetDateTime lastSyncedAt = OffsetDateTime.now();
             
             TicketInfo ticketInfo = new TicketInfo(
@@ -572,6 +571,78 @@ public class CoupleService {
             log.error("❌ DB에서 티켓 정보 조회 실패 - coupleId: {}, error: {}", 
                     coupleId, e.getMessage(), e);
             throw new RuntimeException("티켓 정보 조회 실패", e);
+        }
+    }
+
+    /**
+     * 티켓 차감 (Gateway에서 호출)
+     */
+    @Transactional
+    public boolean consumeTicket(String coupleId) {
+        try {
+            log.info("🎫 티켓 차감 시작 - coupleId: {}", coupleId);
+            
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            
+            if (currentTicketCount <= 0) {
+                log.warn("❌ 티켓 부족 - coupleId: {}, 현재 티켓: {}", coupleId, currentTicketCount);
+                return false;
+            }
+            
+            // 티켓 1개 차감
+            coupleRoom.setTicketCount(currentTicketCount - 1);
+            coupleRoomRepository.save(coupleRoom);
+            
+            log.info("✅ 티켓 차감 완료 - coupleId: {}, 티켓: {} → {}", 
+                    coupleId, currentTicketCount, currentTicketCount - 1);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 차감 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 티켓 차감 및 사용자 상태 변경 (init unlock용)
+     * Territory Service에서 초기 해금 시 호출
+     */
+    @Transactional
+    public boolean consumeTicketAndCompleteRock(String coupleId) {
+        try {
+            log.info("🎫 티켓 차감 및 Rock 완료 처리 시작 - coupleId: {}", coupleId);
+            
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            
+            if (currentTicketCount <= 0) {
+                log.warn("❌ 티켓 부족 - coupleId: {}, 현재 티켓: {}", coupleId, currentTicketCount);
+                return false;
+            }
+            
+            // 1. 티켓 차감
+            coupleRoom.setTicketCount(currentTicketCount - 1);
+            coupleRoomRepository.save(coupleRoom);
+            
+            // 2. 사용자 상태 변경 (Rock 완료)
+            completeRockStatusForCouple(coupleId);
+            
+            log.info("✅ 티켓 차감 및 Rock 완료 처리 성공 - coupleId: {}, 티켓: {} → {}", 
+                    coupleId, currentTicketCount, currentTicketCount - 1);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 차감 및 Rock 완료 처리 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return false;
         }
     }
 
