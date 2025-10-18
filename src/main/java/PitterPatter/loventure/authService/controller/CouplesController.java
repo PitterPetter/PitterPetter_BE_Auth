@@ -296,6 +296,31 @@ public class CouplesController {
                     .body(ApiResponse.error("50001", "티켓 차감 중 오류가 발생했습니다"));
         }
     }
+
+    // 티켓 차감 및 Rock 완료 (init unlock용)
+    @PostMapping("/{coupleId}/ticket/consume-and-complete")
+    public ResponseEntity<ApiResponse<Boolean>> consumeTicketAndCompleteRock(@PathVariable String coupleId) {
+        try {
+            log.info("🎫 티켓 차감 및 Rock 완료 요청 - coupleId: {}", coupleId);
+            
+            boolean success = coupleService.consumeTicketAndCompleteRock(coupleId);
+            
+            if (success) {
+                log.info("✅ 티켓 차감 및 Rock 완료 성공 - coupleId: {}", coupleId);
+                return ResponseEntity.ok(ApiResponse.success("success", true));
+            } else {
+                log.warn("❌ 티켓 차감 및 Rock 완료 실패 - 티켓 부족 - coupleId: {}", coupleId);
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("40002", "티켓이 부족합니다"));
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ 티켓 차감 및 Rock 완료 API 오류 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("50001", "티켓 차감 및 Rock 완료 중 오류가 발생했습니다"));
+        }
+    }
 }
 
 
