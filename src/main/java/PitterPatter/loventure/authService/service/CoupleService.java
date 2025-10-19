@@ -102,6 +102,13 @@ public class CoupleService {
             coupleRoom.setCoupleId(coupleId);
             coupleRoom.setPartnerUserId(user.getProviderId());
             coupleRoom.setStatus(CoupleRoom.CoupleStatus.ACTIVE); // 매칭 완료 시 ACTIVE로 변경
+            
+            // 티켓 초기화 (혹시 null인 경우를 대비)
+            if (coupleRoom.getTicketCount() == null) {
+                coupleRoom.setTicketCount(2);
+                log.info("🎫 커플 매칭 시 티켓 초기화 - coupleId: {}, ticketCount: 2", coupleId);
+            }
+            
             coupleRoomRepository.save(coupleRoom);
 
             // 커플 매칭 완료 후 새 JWT 생성 (coupleId 포함)
@@ -284,6 +291,7 @@ public class CoupleService {
                     .coupleHomeName(request.coupleHomeName())
                     .datingStartDate(parseDatingStartDate(request.datingStartDate()))
                     .status(CoupleRoom.CoupleStatus.PENDING)
+                    .ticketCount(2) // 명시적으로 티켓 2개 설정
                     .build();
             coupleRoomRepository.save(coupleRoom);
 
@@ -617,25 +625,41 @@ public class CoupleService {
         try {
             log.info("🎫 티켓 차감 및 Rock 완료 처리 시작 - coupleId: {}", coupleId);
             
-            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
-                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            // CoupleRoom 조회 (없으면 기본 티켓 2개로 처리)
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId).orElse(null);
             
-            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            int currentTicketCount;
+            if (coupleRoom != null) {
+                // 기존 커플룸이 있는 경우
+                currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+                log.info("🎫 커플룸 조회 성공 - coupleId: {}, ticketCount: {}, null 여부: {}", 
+                        coupleId, currentTicketCount, coupleRoom.getTicketCount() == null);
+            } else {
+                // 신규 가입자 또는 커플룸이 없는 경우 - 기본 티켓 2개
+                log.warn("🎫 커플룸을 찾을 수 없음 - coupleId: {}, 기본 티켓 2개로 처리", coupleId);
+                currentTicketCount = 2;
+            }
             
             if (currentTicketCount <= 0) {
                 log.warn("❌ 티켓 부족 - coupleId: {}, 현재 티켓: {}", coupleId, currentTicketCount);
                 return false;
             }
             
-            // 1. 티켓 차감
-            coupleRoom.setTicketCount(currentTicketCount - 1);
-            coupleRoomRepository.save(coupleRoom);
+            // 1. 티켓 차감 (커플룸이 있는 경우에만)
+            if (coupleRoom != null) {
+                coupleRoom.setTicketCount(currentTicketCount - 1);
+                coupleRoomRepository.save(coupleRoom);
+                log.info("✅ 커플룸 티켓 차감 완료 - coupleId: {}, 티켓: {} → {}", 
+                        coupleId, currentTicketCount, currentTicketCount - 1);
+            } else {
+                log.info("✅ 신규 가입자 티켓 차감 (커플룸 없음) - coupleId: {}, 티켓: {} → {}", 
+                        coupleId, currentTicketCount, currentTicketCount - 1);
+            }
             
             // 2. 사용자 상태 변경 (Rock 완료)
             completeRockStatusForCouple(coupleId);
             
-            log.info("✅ 티켓 차감 및 Rock 완료 처리 성공 - coupleId: {}, 티켓: {} → {}", 
-                    coupleId, currentTicketCount, currentTicketCount - 1);
+            log.info("✅ 티켓 차감 및 Rock 완료 처리 성공 - coupleId: {}", coupleId);
             
             return true;
             

@@ -32,10 +32,7 @@ public class Couple {
     @Column(name = "couple_id", length = 50)
     private String coupleId;
 
-    // 일반 티켓 잔액
-    @Column(name = "ticket_count", nullable = false)
-    @Builder.Default
-    private Integer ticketCount = 2;
+    // 일반 티켓 잔액은 CoupleRoom 테이블에서 관리
 
     // 오늘 티켓을 사용했는지 여부
     @Column(name = "is_today_ticket", nullable = false)
