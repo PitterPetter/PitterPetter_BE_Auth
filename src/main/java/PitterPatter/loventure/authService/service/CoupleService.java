@@ -25,6 +25,8 @@ import PitterPatter.loventure.authService.dto.response.RecommendationUserRespons
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.CoupleMapper;
+import PitterPatter.loventure.authService.repository.Couple;
+import PitterPatter.loventure.authService.repository.CoupleRepository;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
 import PitterPatter.loventure.authService.repository.DateCostPreference;
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CoupleService {
 
     private final CoupleRoomRepository coupleRoomRepository;
+    private final CoupleRepository coupleRepository;
     private final UserService userService;
     private final CoupleMapper coupleMapper;
     private final JWTUtil jwtUtil;
