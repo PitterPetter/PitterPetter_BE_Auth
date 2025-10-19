@@ -674,12 +674,12 @@ public class CoupleService {
      * 사용자의 rock 상태를 완료로 변경
      */
     @Transactional
-    public void completeRockStatus(String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+    public void completeRockStatus(String providerId) {
+        User user = userService.validateUserByProviderId(providerId);
         user.setIsRockCompleted(true);
         user.setRockCompletedAt(LocalDateTime.now());
         userRepository.save(user);
+        log.info("✅ 사용자 Rock 상태 완료 처리 - providerId: {}", providerId);
     }
 
 }
