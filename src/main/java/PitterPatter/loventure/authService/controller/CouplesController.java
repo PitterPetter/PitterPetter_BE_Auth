@@ -323,10 +323,33 @@ public class CouplesController {
     }
 
     // 코스 저장 시 일일 티켓 추가
-    @PostMapping("/{coupleId}/ticket/add")
-    public ResponseEntity<ApiResponse<Boolean>> addTicketForCourse(@PathVariable String coupleId) {
+    @PostMapping("/ticket/add")
+    public ResponseEntity<ApiResponse<Boolean>> addTicketForCourse(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
         try {
-            log.info("🎫 코스 저장 시 일일 티켓 추가 요청 - coupleId: {}", coupleId);
+            log.info("🎫 코스 저장 시 일일 티켓 추가 요청 시작");
+            
+            // JWT에서 coupleId 추출 시도
+            String coupleId;
+            try {
+                coupleId = coupleService.getCoupleIdFromRequest(request);
+                log.info("JWT에서 추출된 coupleId: {}", coupleId);
+            } catch (Exception e) {
+                log.warn("JWT에서 coupleId를 찾을 수 없음: {}", e.getMessage());
+                
+                // JWT에 coupleId가 없는 경우, 사용자의 커플 정보를 직접 조회
+                String providerId = userService.extractProviderId(userDetails);
+                coupleId = coupleService.getCoupleIdByProviderId(providerId);
+                
+                if (coupleId == null) {
+                    log.error("커플 정보를 찾을 수 없음 - providerId: {}", providerId);
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("40400", "커플 정보를 찾을 수 없습니다"));
+                }
+                
+                log.info("사용자 조회를 통해 찾은 coupleId: {}", coupleId);
+            }
             
             boolean success = coupleService.addTicketForCourse(coupleId);
             
@@ -340,8 +363,7 @@ public class CouplesController {
             }
             
         } catch (Exception e) {
-            log.error("❌ 코스 저장 시 일일 티켓 추가 API 오류 - coupleId: {}, error: {}", 
-                    coupleId, e.getMessage(), e);
+            log.error("❌ 코스 저장 시 일일 티켓 추가 API 오류 - error: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("50000", "서버 오류가 발생했습니다"));
         }
