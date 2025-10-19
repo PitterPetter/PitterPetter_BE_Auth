@@ -682,4 +682,54 @@ public class CoupleService {
         log.info("✅ 사용자 Rock 상태 완료 처리 - providerId: {}", providerId);
     }
 
+    /**
+     * 코스 저장 시 일일 티켓 추가 (isTodayTicket 기반)
+     */
+    @Transactional
+    public boolean addTicketForCourse(String coupleId) {
+        try {
+            log.info("🎫 코스 저장 시 일일 티켓 추가 시작 - coupleId: {}", coupleId);
+            
+            // 1. CoupleRoom 조회
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            // 2. Couple 엔티티에서 isTodayTicket 조회
+            Couple couple = coupleRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플을 찾을 수 없습니다: " + coupleId));
+            
+            // 3. isTodayTicket 검증
+            if (!couple.getIsTodayTicket()) {
+                log.warn("❌ 오늘 이미 티켓을 사용했음 - coupleId: {}, isTodayTicket: {}", 
+                        coupleId, couple.getIsTodayTicket());
+                return false; // 오늘 이미 티켓 사용했으면 추가 불가
+            }
+            
+            // 4. 현재 티켓 수 조회
+            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            
+            // 5. 티켓 1개 추가 (무제한)
+            int newTicketCount = currentTicketCount + 1;
+            
+            // 6. 티켓 수 업데이트
+            coupleRoom.setTicketCount(newTicketCount);
+            coupleRoomRepository.save(coupleRoom);
+            
+            // 7. isTodayTicket을 false로 변경 (오늘 티켓 사용 완료)
+            couple.setIsTodayTicket(false);
+            couple.setLastSyncedAt(LocalDateTime.now());
+            coupleRepository.save(couple);
+            
+            log.info("✅ 코스 저장 시 일일 티켓 추가 완료 - coupleId: {}, 티켓: {} → {}, isTodayTicket: {} → {}", 
+                    coupleId, currentTicketCount, newTicketCount, true, false);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("❌ 코스 저장 시 일일 티켓 추가 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return false;
+        }
+    }
+
 }

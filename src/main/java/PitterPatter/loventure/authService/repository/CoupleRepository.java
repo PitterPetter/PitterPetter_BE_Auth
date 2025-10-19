@@ -22,4 +22,9 @@ public interface CoupleRepository extends JpaRepository<Couple, String> {
     @Modifying
     @Query("UPDATE Couple c SET c.isTodayTicket = true, c.lastSyncedAt = :now")
     int resetAllDailyTickets(@Param("now") LocalDateTime now);
+    
+    /**
+     * 오늘 티켓 사용 가능한 커플 수 조회
+     */
+    long countByIsTodayTicketTrue();
 }
