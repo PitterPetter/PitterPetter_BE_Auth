@@ -1,6 +1,7 @@
 package PitterPatter.loventure.authService.repository;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -15,6 +16,11 @@ import PitterPatter.loventure.authService.domain.Couple;
  */
 @Repository
 public interface CoupleRepository extends JpaRepository<Couple, String> {
+    
+    /**
+     * 커플 ID로 커플 조회
+     */
+    Optional<Couple> findByCoupleId(String coupleId);
     
     /**
      * 일일 티켓 초기화 (모든 isTodayTicket을 true로 변경)
