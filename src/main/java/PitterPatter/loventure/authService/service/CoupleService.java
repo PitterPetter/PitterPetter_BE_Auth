@@ -682,4 +682,38 @@ public class CoupleService {
         log.info("✅ 사용자 Rock 상태 완료 처리 - providerId: {}", providerId);
     }
 
+    /**
+     * 코스 저장 시 티켓 추가
+     */
+    @Transactional
+    public boolean addTicketForCourse(String coupleId) {
+        try {
+            log.info("🎫 코스 저장 시 티켓 추가 시작 - coupleId: {}", coupleId);
+            
+            // CoupleRoom 조회
+            CoupleRoom coupleRoom = coupleRoomRepository.findByCoupleId(coupleId)
+                    .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
+            
+            // 현재 티켓 수 조회
+            int currentTicketCount = coupleRoom.getTicketCount() != null ? coupleRoom.getTicketCount() : 2;
+            
+            // 티켓 1개 추가 (최대 5개까지)
+            int newTicketCount = Math.min(currentTicketCount + 1, 5);
+            
+            // 티켓 수 업데이트
+            coupleRoom.setTicketCount(newTicketCount);
+            coupleRoomRepository.save(coupleRoom);
+            
+            log.info("✅ 코스 저장 시 티켓 추가 완료 - coupleId: {}, 티켓: {} → {}", 
+                    coupleId, currentTicketCount, newTicketCount);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("❌ 코스 저장 시 티켓 추가 실패 - coupleId: {}, error: {}", 
+                    coupleId, e.getMessage(), e);
+            return false;
+        }
+    }
+
 }
