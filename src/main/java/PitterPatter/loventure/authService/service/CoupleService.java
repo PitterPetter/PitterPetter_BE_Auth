@@ -25,7 +25,7 @@ import PitterPatter.loventure.authService.dto.response.RecommendationUserRespons
 import PitterPatter.loventure.authService.exception.BusinessException;
 import PitterPatter.loventure.authService.exception.ErrorCode;
 import PitterPatter.loventure.authService.mapper.CoupleMapper;
-import PitterPatter.loventure.authService.repository.Couple;
+import PitterPatter.loventure.authService.domain.Couple;
 import PitterPatter.loventure.authService.repository.CoupleRepository;
 import PitterPatter.loventure.authService.repository.CoupleRoom;
 import PitterPatter.loventure.authService.repository.CoupleRoomRepository;
