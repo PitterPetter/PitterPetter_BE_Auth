@@ -322,25 +322,25 @@ public class CouplesController {
         }
     }
 
-    // 코스 저장 시 티켓 추가
+    // 코스 저장 시 일일 티켓 추가
     @PostMapping("/{coupleId}/ticket/add")
     public ResponseEntity<ApiResponse<Boolean>> addTicketForCourse(@PathVariable String coupleId) {
         try {
-            log.info("🎫 코스 저장 시 티켓 추가 요청 - coupleId: {}", coupleId);
+            log.info("🎫 코스 저장 시 일일 티켓 추가 요청 - coupleId: {}", coupleId);
             
             boolean success = coupleService.addTicketForCourse(coupleId);
             
             if (success) {
-                log.info("✅ 코스 저장 시 티켓 추가 성공 - coupleId: {}", coupleId);
+                log.info("✅ 코스 저장 시 일일 티켓 추가 성공 - coupleId: {}", coupleId);
                 return ResponseEntity.ok(ApiResponse.success("success", true));
             } else {
-                log.warn("❌ 코스 저장 시 티켓 추가 실패 - coupleId: {}", coupleId);
+                log.warn("❌ 코스 저장 시 일일 티켓 추가 실패 - 오늘 이미 티켓 사용함 - coupleId: {}", coupleId);
                 return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("40003", "티켓 추가에 실패했습니다"));
+                        .body(ApiResponse.error("40003", "오늘 이미 티켓을 사용했습니다. 내일 다시 시도해주세요."));
             }
             
         } catch (Exception e) {
-            log.error("❌ 코스 저장 시 티켓 추가 API 오류 - coupleId: {}, error: {}", 
+            log.error("❌ 코스 저장 시 일일 티켓 추가 API 오류 - coupleId: {}, error: {}", 
                     coupleId, e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("50000", "서버 오류가 발생했습니다"));
