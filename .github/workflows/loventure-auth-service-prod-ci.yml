@@ -25,22 +25,18 @@ jobs:
           password: ${{ secrets.DOCKER_PAT }}
 
       # 태그명 변수화 + 짧게 만들기
-      - name: Set Image Version Tag
+      # Manifest develop 브랜치에서 현재 이미지 태그 가져오기
+      - name: Get image tag from dev manifest
         id: vars
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      # Docker Image 빌드 및 푸시
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: |
-            pitterpetter/auth-service:${{ steps.vars.outputs.sha_short }}
-            pitterpetter/auth-service:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          git clone https://github.com/PitterPetter/PitterPatter-Manifest.git temp-manifest
+          cd temp-manifest
+          git checkout develop
+          IMAGE_TAG=$(yq eval '.auth-service.deployment.image.tag' charts/loventure/values.yaml)
+          echo "sha_short=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag from dev manifest: $IMAGE_TAG"
+          cd ..
+          rm -rf temp-manifest
 
       # ArgoCD가 참조하는 Repository로 checkout
       - name: Update Manifest Repo
