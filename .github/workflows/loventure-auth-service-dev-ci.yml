@@ -1,0 +1,71 @@
+name: CI for Auth Service (Dev)
+
+on:
+  push:
+    branches: [ "develop" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      # Docker 로그인
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      # 태그명 변수화 + 짧게 만들기 (develop 브랜치용)
+      - name: Set Image Version Tag
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      # Docker Image 빌드 및 푸시
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            pitterpetter/auth-service:${{ steps.vars.outputs.sha_short }}
+            pitterpetter/auth-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ArgoCD가 참조하는 Repository로 checkout (develop 브랜치)
+      - name: Update Manifest Repo
+        uses: actions/checkout@v3
+        with:
+          repository: PitterPetter/PitterPatter-Manifest    # ArgoCD가 바라보는 Organization/Repo
+          token: ${{ secrets.GH_PAT }}       # Personal Access Token 필요
+          path: manifests
+          ref: develop  # develop 브랜치로 체크아웃
+
+      # Manifest Repository에서 Manifest 파일 내의 이미지 태그를 업데이트
+      - name: Update image tag in Deployment yaml
+        run: |
+          cd manifests/charts/loventure
+          # yq를 사용해서 auth-service의 image.tag만 업데이트 (develop 브랜치용)
+          yq eval '.authService.deployment.image.tag = "${{ steps.vars.outputs.sha_short }}"' -i values.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 변경사항 확인 후 커밋
+          if git diff --quiet values.yaml; then
+            echo "No changes detected in values.yaml"
+          else
+            echo "Changes detected:"
+            git diff values.yaml
+            git add values.yaml
+            git commit -m "ci: Update auth-service image to ${{ steps.vars.outputs.sha_short }}"
+            git push origin develop
+          fi
