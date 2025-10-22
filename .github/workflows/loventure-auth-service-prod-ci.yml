@@ -12,31 +12,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-
-      # Docker 로그인
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PAT }}
-
-      # 태그명 변수화 + 짧게 만들기
-      # Manifest develop 브랜치에서 현재 이미지 태그 가져오기
-      - name: Get image tag from dev manifest
+      # Manifest develop 브랜치에서 이미지 태그 가져오기
+      - name: Get Image Tag from Dev Manifest
         id: vars
         run: |
+          # Manifest develop 브랜치에서 현재 이미지 태그 가져오기
           git clone https://github.com/PitterPetter/PitterPatter-Manifest.git temp-manifest
           cd temp-manifest
           git checkout develop
-          IMAGE_TAG=$(yq eval '.auth-service.deployment.image.tag' charts/loventure/values.yaml)
+          IMAGE_TAG=$(yq eval '.image.tag' charts/loventure/charts/auth-service/values.yaml)
           echo "sha_short=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Using image tag from dev manifest: $IMAGE_TAG"
           cd ..
           rm -rf temp-manifest
+
+      # Prod 환경에서는 이미지 빌드 생략하고 Manifest만 업데이트
 
       # ArgoCD가 참조하는 Repository로 checkout
       - name: Update Manifest Repo
@@ -49,11 +39,11 @@ jobs:
       # Manifest Repository에서 Manifest 파일 내의 이미지 태그를 업데이트
       - name: Update image tag in Deployment yaml
         run: |
-          cd manifests/charts/loventure
-          # yq를 사용해서 auth-service의 deployment.image.tag만 업데이트
-          yq eval '.auth-service.deployment.image.tag = "${{ steps.vars.outputs.sha_short }}"' -i values.yaml
-          git config user.name "llokr1"
-          git config user.email "ghdwlsrl100@gachon.ac.kr"
+          cd manifests/charts/loventure/charts/auth-service
+          # yq를 사용해서 auth-service의 image.tag만 업데이트
+          yq eval '.image.tag = "${{ steps.vars.outputs.sha_short }}"' -i values.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           # 변경사항 확인 후 커밋
           if git diff --quiet values.yaml; then
             echo "No changes detected in values.yaml"
@@ -61,6 +51,6 @@ jobs:
             echo "Changes detected:"
             git diff values.yaml
             git add values.yaml
-            git commit -m "Update auth-service image to ${{ steps.vars.outputs.sha_short }}"
+            git commit -m "ci: Update auth-service image to ${{ steps.vars.outputs.sha_short }}"
             git push origin main
           fi
