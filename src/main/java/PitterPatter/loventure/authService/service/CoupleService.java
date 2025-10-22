@@ -47,6 +47,7 @@ public class CoupleService {
     private final CoupleMapper coupleMapper;
     private final JWTUtil jwtUtil;
     private final UserRepository userRepository;
+    private final RedisTicketService redisTicketService;
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
@@ -534,9 +535,27 @@ public class CoupleService {
                 .orElseThrow(() -> new IllegalArgumentException("커플룸을 찾을 수 없습니다: " + coupleId));
         
         // 1. 두 사용자 모두 상태 변경
-        completeRockStatus(coupleRoom.getCreatorUserId());
+        try {
+            completeRockStatus(coupleRoom.getCreatorUserId());
+            log.info("✅ Creator 사용자 Rock 상태 완료 - userId: {}", coupleRoom.getCreatorUserId());
+        } catch (Exception e) {
+            log.error("❌ Creator 사용자 Rock 상태 완료 실패 - userId: {}, error: {}", 
+                    coupleRoom.getCreatorUserId(), e.getMessage());
+            throw e;
+        }
+        
         if (coupleRoom.getPartnerUserId() != null) {
-            completeRockStatus(coupleRoom.getPartnerUserId());
+            try {
+                completeRockStatus(coupleRoom.getPartnerUserId());
+                log.info("✅ Partner 사용자 Rock 상태 완료 - userId: {}", coupleRoom.getPartnerUserId());
+            } catch (Exception e) {
+                log.error("❌ Partner 사용자 Rock 상태 완료 실패 - userId: {}, error: {}", 
+                        coupleRoom.getPartnerUserId(), e.getMessage());
+                // Partner 사용자가 없어도 Creator만으로 진행
+                log.warn("⚠️ Partner 사용자 Rock 상태 완료 실패했지만 Creator만으로 진행 - coupleId: {}", coupleId);
+            }
+        } else {
+            log.warn("⚠️ Partner 사용자가 없음 - coupleId: {}", coupleId);
         }
         
         // 2. 커플룸 상태 업데이트
@@ -607,6 +626,9 @@ public class CoupleService {
             coupleRoom.setTicketCount(currentTicketCount - 1);
             coupleRoomRepository.save(coupleRoom);
             
+            // Redis에도 동기화
+            redisTicketService.setTicketCount(coupleId, currentTicketCount - 1);
+            
             log.info("✅ 티켓 차감 완료 - coupleId: {}, 티켓: {} → {}", 
                     coupleId, currentTicketCount, currentTicketCount - 1);
             
@@ -658,6 +680,9 @@ public class CoupleService {
                 log.info("✅ 신규 가입자 티켓 차감 (커플룸 없음) - coupleId: {}, 티켓: {} → {}", 
                         coupleId, currentTicketCount, currentTicketCount - 1);
             }
+            
+            // Redis에도 동기화
+            redisTicketService.setTicketCount(coupleId, currentTicketCount - 1);
             
             // 2. 사용자 상태 변경 (Rock 완료)
             completeRockStatusForCouple(coupleId);
@@ -717,6 +742,9 @@ public class CoupleService {
             // 6. 티켓 수 업데이트
             coupleRoom.setTicketCount(newTicketCount);
             coupleRoomRepository.save(coupleRoom);
+            
+            // Redis에도 동기화
+            redisTicketService.setTicketCount(coupleId, newTicketCount);
             
             // 7. isTodayTicket을 false로 변경 (오늘 티켓 사용 완료)
             couple.setIsTodayTicket(false);
